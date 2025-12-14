@@ -1,0 +1,7 @@
+# no PHP execution in uploads
+php_flag engine off
+RemoveHandler .php .phtml .php5 .php7
+<FilesMatch "\.(php|php\d|phtml)$">
+  Deny from all
+</FilesMatch>
+Options -ExecCGI

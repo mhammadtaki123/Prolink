@@ -1,0 +1,45 @@
+[26-Nov-2025 15:39:43 Europe/Berlin] PHP Fatal error:  Uncaught Error: mysqli object is already closed in C:\x\htdocs\Prolink\index.php:19
+Stack trace:
+#0 C:\x\htdocs\Prolink\index.php(19): mysqli->prepare('SELECT DISTINCT...')
+#1 {main}
+  thrown in C:\x\htdocs\Prolink\index.php on line 19
+[28-Nov-2025 10:38:51 Europe/Berlin] PHP Fatal error:  Uncaught Error: mysqli object is already closed in C:\x\htdocs\Prolink\admin\contact-messages.php:25
+Stack trace:
+#0 C:\x\htdocs\Prolink\admin\contact-messages.php(25): mysqli->query('SHOW TABLES LIK...')
+#1 {main}
+  thrown in C:\x\htdocs\Prolink\admin\contact-messages.php on line 25
+[28-Nov-2025 13:40:02 Europe/Berlin] PHP Fatal error:  Uncaught Error: mysqli object is already closed in C:\x\htdocs\Prolink\admin\contact-messages.php:25
+Stack trace:
+#0 C:\x\htdocs\Prolink\admin\contact-messages.php(25): mysqli->query('SHOW TABLES LIK...')
+#1 {main}
+  thrown in C:\x\htdocs\Prolink\admin\contact-messages.php on line 25
+[03-Dec-2025 20:47:33 Europe/Berlin] PHP Deprecated:  Constant FILTER_SANITIZE_STRING is deprecated in C:\x\htdocs\Prolink\process\contact-submit.php on line 22
+[03-Dec-2025 20:47:33 Europe/Berlin] PHP Deprecated:  Constant FILTER_SANITIZE_STRING is deprecated in C:\x\htdocs\Prolink\process\contact-submit.php on line 22
+[12-Dec-2025 09:25:24 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in /Applications/XAMPP/xamppfiles/htdocs/Prolink/user/pay.php:36
+Stack trace:
+#0 {main}
+  thrown in /Applications/XAMPP/xamppfiles/htdocs/Prolink/user/pay.php on line 36
+[12-Dec-2025 09:28:15 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in /Applications/XAMPP/xamppfiles/htdocs/Prolink/user/pay.php:36
+Stack trace:
+#0 {main}
+  thrown in /Applications/XAMPP/xamppfiles/htdocs/Prolink/user/pay.php on line 36
+[14-Dec-2025 11:39:12 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php:35
+Stack trace:
+#0 /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php(53): find_account(Object(mysqli), 'workers', 'worker_id', 'Worker_mhammad@...')
+#1 {main}
+  thrown in /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php on line 35
+[14-Dec-2025 11:42:53 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php:35
+Stack trace:
+#0 /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php(53): find_account(Object(mysqli), 'workers', 'worker_id', 'Worker_mhammad@...')
+#1 {main}
+  thrown in /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php on line 35
+[14-Dec-2025 11:47:34 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php:35
+Stack trace:
+#0 /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php(53): find_account(Object(mysqli), 'workers', 'worker_id', 'Worker_mhammad@...')
+#1 {main}
+  thrown in /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php on line 35
+[14-Dec-2025 11:47:46 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function bind_param() on bool in /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php:35
+Stack trace:
+#0 /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php(53): find_account(Object(mysqli), 'workers', 'worker_id', 'Worker_mhammad@...')
+#1 {main}
+  thrown in /Applications/XAMPP/xamppfiles/htdocs/Prolink/worker/process_login.php on line 35
