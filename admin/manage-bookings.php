@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token']) && hash
               'pending'  => ['accepted','cancelled'],
               'accepted' => ['completed','cancelled'],
               'completed'=> [],
-              'cancelled'=> []
+              'cancelled'=> ['pending']
             ];
             if (!in_array($to, $okTransitions[$cur] ?? [], true)) {
               $err = 'Invalid transition from ' . $cur . ' to ' . $to . '.';
@@ -286,7 +286,21 @@ $totalPages = (int)ceil(max(1, $total) / $perPage);
                   <input type="hidden" name="booking_id" value="<?= (int)$b['booking_id'] ?>">
                   <button class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50" type="submit">Cancel</button>
                 </form>
-              <?php else: /* completed or cancelled */ ?>
+              <?php elseif ($b['status'] === 'cancelled'): ?>
+                <form method="post">
+                  <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
+                  <input type="hidden" name="action" value="update">
+                  <input type="hidden" name="to" value="pending">
+                  <input type="hidden" name="booking_id" value="<?= (int)$b['booking_id'] ?>">
+                  <button class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50" type="submit">Edit (Set to Pending)</button>
+                </form>
+                <form method="post" onsubmit="return confirm('Delete this booking?')">
+                  <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="booking_id" value="<?= (int)$b['booking_id'] ?>">
+                  <button class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50" type="submit">Delete</button>
+                </form>
+              <?php else: /* completed */ ?>
                 <form method="post" onsubmit="return confirm('Delete this booking?')">
                   <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
                   <input type="hidden" name="action" value="delete">

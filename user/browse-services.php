@@ -1,12 +1,4 @@
 <?php
-/**
- * ProLink - Browse Services (Public)
- * Path: /Prolink/user/browse-services.php
- * Notes:
- *  - Uses services.location (not city/country)
- *  - Simple search + category filter + pagination
- *  - Safe prepared statements
- */
 
 // Allow direct access without session requirement
 $root = dirname(__DIR__);
@@ -42,10 +34,10 @@ $params = [];
 $types  = '';
 
 if ($q !== '') {
-    $where[] = '(s.title LIKE ? OR s.category LIKE ? OR s.location LIKE ? OR s.description LIKE ?)';
+    $where[] = '(s.title LIKE ? OR s.category LIKE ? OR s.location LIKE ? OR s.description LIKE ? OR w.full_name LIKE ?)';
     $like = '%' . $q . '%';
-    $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
-    $types   .= 'ssss';
+    $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
+    $types   .= 'sssss';
 }
 if ($category !== '') {
     $where[] = 's.category = ?';
@@ -56,7 +48,7 @@ if ($category !== '') {
 $whereSql = count($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
 
 // Count total
-$sqlCount = "SELECT COUNT(*) AS total FROM services s $whereSql";
+$sqlCount = "SELECT COUNT(*) AS total FROM services s LEFT JOIN workers w ON w.worker_id = s.worker_id $whereSql";
 $stCount = $conn->prepare($sqlCount);
 if (!$stCount) {
     http_response_code(500);
@@ -75,11 +67,15 @@ $stCount->close();
 $sql = "
 SELECT
   s.service_id,
+  s.worker_id,
   s.title,
   s.category,
   s.price,
   s.location,
   s.description,
+  w.full_name AS worker_name,
+  COALESCE(rv.avg_rating, w.rating, 0) AS avg_rating,
+  COALESCE(rv.review_count, 0) AS review_count,
   (
     SELECT si.file_path
     FROM service_images si
@@ -88,6 +84,12 @@ SELECT
     LIMIT 1
   ) AS image_path
 FROM services s
+LEFT JOIN workers w ON w.worker_id = s.worker_id
+LEFT JOIN (
+  SELECT worker_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+  FROM reviews
+  GROUP BY worker_id
+) rv ON rv.worker_id = s.worker_id
 $whereSql
 ORDER BY s.service_id DESC
 LIMIT ? OFFSET ?
@@ -155,6 +157,7 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
               <h3 class="text-lg font-semibold mb-1"><?= h($it['title']) ?></h3>
               <div class="text-sm text-gray-600 mb-1"><?= h($it['category']) ?></div>
               <div class="text-sm text-gray-600 mb-2"><?= h($it['location']) ?></div>
+              <div class="text-sm text-gray-500 mb-2">By <?= h($it['worker_name'] ?? 'Unknown') ?> • ★ <?= number_format((float)($it['avg_rating'] ?? 0), 1) ?> (<?= (int)($it['review_count'] ?? 0) ?>)</div>
               <div class="text-blue-700 font-bold mb-3">$<?= number_format((float)$it['price'], 2) ?></div>
               <p class="text-sm text-gray-700 line-clamp-3 mb-4"><?= h(mb_strimwidth($it['description'] ?? '', 0, 160, '…', 'UTF-8')) ?></p>
               <div class="mt-auto">

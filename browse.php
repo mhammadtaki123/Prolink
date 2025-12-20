@@ -2,20 +2,7 @@
 declare(strict_types=1);
 session_start();
 
-/**
- * Prolink • Browse Services (Tailwind version)
- * URL: /Prolink/browse.php
- *
- * Lists records from `services` joined with `workers` with optional filters:
- *   - q: search in title/description/category/location/worker name
- *   - category: exact match on services.category
- *   - min_price, max_price
- *   - location: LIKE match on services.location
- *
- * Fixes earlier bug where code tried to read w.location (location is on services).
- */
 
-// Try common DB includes
 $__db_bootstrap_files = [
   __DIR__ . '/includes/db.php',
   __DIR__ . '/config/db.php',
@@ -108,9 +95,17 @@ $total_pages = max(1, (int)ceil($total / $per_page));
 // ------ Fetch page ------
 $sql = "SELECT 
           s.service_id, s.title, s.description, s.category, s.price, s.location, s.status, s.created_at,
-          w.worker_id, w.full_name, w.rating, w.skill_category, w.hourly_rate
+          w.worker_id, w.full_name,
+          COALESCE(rv.avg_rating, w.rating, 0) AS avg_rating,
+          COALESCE(rv.review_count, 0) AS review_count,
+          w.skill_category, w.hourly_rate
         FROM services s
         INNER JOIN workers w ON w.worker_id = s.worker_id
+        LEFT JOIN (
+          SELECT worker_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+          FROM reviews
+          GROUP BY worker_id
+        ) rv ON rv.worker_id = w.worker_id
         $where_sql
         ORDER BY s.created_at DESC
         LIMIT ? OFFSET ?";
@@ -183,7 +178,7 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
               <?= h(mb_strimwidth($r['description'], 0, 120, '…', 'UTF-8')) ?>
             </p>
             <div class="text-sm text-slate-500 mt-3">
-              By <?= h($r['full_name']) ?> • ★ <?= number_format((float)$r['rating'], 1) ?>
+              By <?= h($r['full_name']) ?> • ★ <?= number_format((float)($r['avg_rating'] ?? 0), 1) ?> (<?= (int)($r['review_count'] ?? 0) ?>)
             </div>
                         <div class="mt-3 flex items-center justify-between">
               <div class="font-bold text-slate-800">

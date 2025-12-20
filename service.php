@@ -1,11 +1,4 @@
 <?php
-/**
- * ProLink - Service Details + Booking
- * Path: /Prolink/service.php
- * Notes:
- *  - Uses service_images.file_path
- *  - Booking form posts to /user/book-service.php (expects: service_id, worker_id, date, time, notes)
- */
 session_start();
 
 // Locate config.php (support Lib/ and lib/)
@@ -39,8 +32,19 @@ if ($service_id <= 0) {
 
 // Fetch service
 $svc = $conn->prepare('
-    SELECT service_id, worker_id, title, category, price, location, description
-    FROM services WHERE service_id = ? LIMIT 1
+    SELECT 
+      s.service_id, s.worker_id, s.title, s.category, s.price, s.location, s.description,
+      w.full_name AS worker_name,
+      COALESCE(rv.avg_rating, w.rating, 0) AS avg_rating,
+      COALESCE(rv.review_count, 0) AS review_count
+    FROM services s
+    INNER JOIN workers w ON w.worker_id = s.worker_id
+    LEFT JOIN (
+      SELECT worker_id, AVG(rating) AS avg_rating, COUNT(*) AS review_count
+      FROM reviews
+      GROUP BY worker_id
+    ) rv ON rv.worker_id = w.worker_id
+    WHERE s.service_id = ? LIMIT 1
 ');
 $svc->bind_param('i', $service_id);
 $svc->execute();
@@ -96,6 +100,7 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
         <div class="p-6">
           <h1 class="text-2xl font-bold mb-2"><?= h($service['title']) ?></h1>
+          <div class="text-sm text-gray-600 mb-3">By <?= h($service['worker_name'] ?? 'Unknown') ?> • ★ <?= number_format((float)($service['avg_rating'] ?? 0), 1) ?> (<?= (int)($service['review_count'] ?? 0) ?>)</div>
           <div class="text-sm text-gray-600 mb-1">Category: <?= h($service['category']) ?></div>
           <div class="text-sm text-gray-600 mb-1">Location: <?= h($service['location']) ?></div>
           <div class="text-blue-700 font-semibold mb-4 text-lg">$<?= number_format((float)$service['price'], 2) ?></div>
