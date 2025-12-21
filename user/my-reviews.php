@@ -73,7 +73,7 @@ try {
     <h1 class="text-2xl font-bold">My Reviews</h1>
     <div class="flex gap-2">
       <a href="<?= h(url('/dashboard/user-dashboard.php')) ?>" class="text-sm text-gray-600 hover:underline">Dashboard</a>
-      <a href="<?= h(url('/user/my-bookings.php')) ?>" class="text-sm text-purple-700 hover:underline">My bookings</a>
+      <a href="<?= h(url('/user/my-bookings.php')) ?>" class="text-sm text-blue-700 hover:underline">My bookings</a>
     </div>
   </div>
 
@@ -87,7 +87,7 @@ try {
     <div class="bg-white rounded-xl border px-6 py-8 text-center">
       <p class="text-gray-600 mb-2">You haven't written any reviews yet.</p>
       <p class="text-gray-500 text-sm mb-4">After you complete a booking, you can leave a review from your bookings page.</p>
-      <a href="<?= h(url('/user/browse-services.php')) ?>" class="inline-flex items-center px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700">
+      <a href="<?= h(url('/user/browse-services.php')) ?>" class="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
         Browse services
       </a>
     </div>

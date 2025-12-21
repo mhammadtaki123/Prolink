@@ -29,13 +29,13 @@ $svcRows = $services->get_result();
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-purple-50 min-h-screen">
+<body class="bg-blue-50 min-h-screen">
 <?php require_once __DIR__ . '/../partials/navbar.php'; ?>
 
 <div class="max-w-5xl mx-auto mt-6 bg-white rounded-2xl shadow p-6">
   <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-bold text-purple-700">Worker Dashboard</h1>
-    <a href="<?= url('/worker/add-service.php') ?>" class="px-4 py-2 bg-purple-600 text-white rounded-lg">+ Add Service</a>
+    <h1 class="text-2xl font-bold text-blue-700">Worker Dashboard</h1>
+    <a href="<?= url('/worker/add-service.php') ?>" class="px-4 py-2 bg-blue-600 text-white rounded-lg">+ Add Service</a>
   </div>
 
   <h2 class="mt-6 mb-2 text-lg font-semibold text-gray-800">My Services</h2>
@@ -43,7 +43,7 @@ $svcRows = $services->get_result();
     <div class="grid md:grid-cols-2 gap-4">
       <?php while ($s = $svcRows->fetch_assoc()): ?>
         <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
-          <a href="<?= url('/service.php?id=' . $s['service_id']) ?>" class="text-lg font-semibold text-purple-700 hover:underline">
+          <a href="<?= url('/service.php?id=' . $s['service_id']) ?>" class="text-lg font-semibold text-blue-700 hover:underline">
             <?= htmlspecialchars($s['title']) ?>
           </a>
           <p class="text-sm text-gray-600"><?= htmlspecialchars($s['category']) ?></p>

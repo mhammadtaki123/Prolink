@@ -65,7 +65,7 @@ $flash_err=$_GET['err']??null;
   <meta charset="utf-8"><title>Admin — Edit User</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-purple-50 min-h-screen">
+<body class="bg-blue-50 min-h-screen">
 <?php include __DIR__ . '/partials/navbar.php'; ?>
 <div class="max-w-3xl mx-auto px-4 py-8">
   <h1 class="text-2xl font-bold mb-4">Edit User</h1>
@@ -93,7 +93,7 @@ $flash_err=$_GET['err']??null;
         <input name="address" value="<?= htmlspecialchars($user['address'] ?? '') ?>" class="mt-1 w-full border rounded px-3 py-2" <?= $ADDR_COL?'':'disabled' ?>>
       </div>
       <div class="flex gap-2">
-        <button class="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700">Save</button>
+        <button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Save</button>
         <a class="px-4 py-2 rounded bg-white border hover:bg-gray-50" href="<?= url('/admin/manage-users.php') ?>">Cancel</a>
       </div>
     </form>

@@ -94,12 +94,12 @@ function actions_for($status){
 
             <div class="mt-3 flex flex-wrap items-center gap-3">
               <a href="<?= h(url('/user/booking-details.php?booking_id=' . (int)$b['booking_id'])) ?>"
-                 class="inline-flex items-center text-xs text-purple-700 hover:text-purple-900 hover:underline">
+                 class="inline-flex items-center text-xs text-blue-700 hover:text-blue-900 hover:underline">
                 View details
                 <?php if (strtolower($b['status']) === 'completed'): ?>
                <a
                href="<?= h(url('/user/pay.php?booking_id=' . (int)$b['booking_id'])) ?>"
-              class="inline-flex items-center px-3 py-2 rounded-lg bg-purple-600 text-white text-xs hover:bg-purple-700">
+              class="inline-flex items-center px-3 py-2 rounded-lg bg-blue-600 text-white text-xs hover:bg-blue-700">
               Proceed to payment
              </a>
              <?php endif; ?>

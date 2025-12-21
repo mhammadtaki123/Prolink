@@ -25,6 +25,6 @@ function h($s){return htmlspecialchars((string)$s,ENT_QUOTES,'UTF-8');}
       <label class="block text-sm mb-1">Password</label>
       <input name="password" type="password" required class="w-full border rounded px-3 py-2">
     </div>
-    <button class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">Login</button>
+    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Login</button>
   </form>
 </div>

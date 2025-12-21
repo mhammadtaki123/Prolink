@@ -87,7 +87,7 @@ try {
 <div class="max-w-4xl mx-auto px-4 py-8">
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold">Booking #<?= (int)$booking_id ?></h1>
-    <a href="<?= h(url('/user/my-bookings.php')) ?>" class="text-sm text-purple-700 hover:underline">Back to my bookings</a>
+    <a href="<?= h(url('/user/my-bookings.php')) ?>" class="text-sm text-blue-700 hover:underline">Back to my bookings</a>
   </div>
 
   <?php if ($db_error): ?>
@@ -197,7 +197,7 @@ try {
           You haven't reviewed this booking yet.
         </p>
         <a href="<?= h(url('/user/add-review.php?booking_id=' . (int)$booking_id)) ?>"
-           class="inline-flex items-center px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700">
+           class="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
           Leave a review
         </a>
       <?php else: ?>

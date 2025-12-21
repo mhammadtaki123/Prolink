@@ -35,13 +35,13 @@ unset($_SESSION['error'], $_SESSION['success']);
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="<?= url('/assets/style.css') ?>">
 </head>
-<body class="bg-purple-50 min-h-screen">
+<body class="bg-blue-50 min-h-screen">
   <?php include __DIR__ . '/../partials/navbar.php'; ?>
 
   <main class="max-w-3xl mx-auto p-6">
     <div class="mb-4 flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-purple-700">Images — <?= htmlspecialchars($svc['title']) ?></h1>
-      <a href="<?= url('/dashboard/worker-dashboard.php') ?>" class="text-purple-700 hover:underline">← Back</a>
+      <h1 class="text-2xl font-bold text-blue-700">Images — <?= htmlspecialchars($svc['title']) ?></h1>
+      <a href="<?= url('/dashboard/worker-dashboard.php') ?>" class="text-blue-700 hover:underline">← Back</a>
     </div>
 
     <?php if ($err): ?><div class="mb-4 p-3 rounded bg-red-100 text-red-800"><?= htmlspecialchars($err) ?></div><?php endif; ?>

@@ -66,7 +66,7 @@ $flash_err=$_GET['err']??null; $flash_ok=$_GET['msg']??null;
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-purple-50 min-h-screen">
+<body class="bg-blue-50 min-h-screen">
 <?php include __DIR__ . '/partials/navbar.php'; ?>
 <div class="max-w-7xl mx-auto px-4 py-8">
   <div class="flex items-center justify-between mb-6">
@@ -89,7 +89,7 @@ $flash_err=$_GET['err']??null; $flash_ok=$_GET['msg']??null;
       <input type="number" name="minr" min="1" max="5" value="<?= (int)$minr ?>" class="w-20 rounded px-3 py-2" />
       <input type="number" name="maxr" min="1" max="5" value="<?= (int)$maxr ?>" class="w-20 rounded px-3 py-2" />
     </div>
-    <button class="px-4 py-2 rounded bg-purple-600 text-white">Filter</button>
+    <button class="px-4 py-2 rounded bg-blue-600 text-white">Filter</button>
   </form>
 
   <div class="text-sm text-gray-700 mb-3">Results: <span class="font-medium"><?= (int)$total ?></span></div>
@@ -103,10 +103,10 @@ $flash_err=$_GET['err']??null; $flash_ok=$_GET['msg']??null;
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1">
               <div class="text-sm text-gray-600">
-                <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800"><?= (int)$r['rating'] ?>/5</span>
+                <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800"><?= (int)$r['rating'] ?>/5</span>
                 · <span><?= htmlspecialchars($r['created_at']) ?></span>
               </div>
-              <div class="mt-1 text-base font-semibold text-purple-700">
+              <div class="mt-1 text-base font-semibold text-blue-700">
                 <a class="hover:underline" href="<?= url('/service.php?id='.(int)$r['service_id']) ?>"><?= htmlspecialchars($r['service_title']) ?></a>
               </div>
               <div class="text-sm text-gray-700">
@@ -131,7 +131,7 @@ $flash_err=$_GET['err']??null; $flash_ok=$_GET['msg']??null;
     <?php if ($pages>1): ?>
       <div class="mt-6 flex items-center gap-2">
         <?php if ($page>1): ?><a class="px-3 py-1 rounded bg-white shadow" href="<?= qs_r(['page'=>$page-1]) ?>">Prev</a><?php endif; ?>
-        <span class="px-3 py-1 rounded bg-purple-600 text-white"><?= $page ?></span>
+        <span class="px-3 py-1 rounded bg-blue-600 text-white"><?= $page ?></span>
         <?php if ($page<$pages): ?><a class="px-3 py-1 rounded bg-white shadow" href="<?= qs_r(['page'=>$page+1]) ?>">Next</a><?php endif; ?>
       </div>
     <?php endif; ?>

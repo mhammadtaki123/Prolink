@@ -288,7 +288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           rows="3"><?= old('bio') ?></textarea>
       </div>
 
-      <button class="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-lg py-2 font-medium" type="submit">
+      <button class="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 font-medium" type="submit">
         Create Worker Account
       </button>
 

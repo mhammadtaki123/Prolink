@@ -36,7 +36,7 @@ $hasRev  = $DB_OK && function_exists('table_exists') ? table_exists($conn,'revie
     </div>
 
     <div class="mt-4 flex flex-wrap gap-2">
-      <a class="px-3 py-1.5 rounded bg-purple-600 text-white" href="<?= url('/index.php?safemode=1&diag=1') ?>">Open index (safe mode)</a>
+      <a class="px-3 py-1.5 rounded bg-blue-600 text-white" href="<?= url('/index.php?safemode=1&diag=1') ?>">Open index (safe mode)</a>
       <a class="px-3 py-1.5 rounded bg-gray-900 text-white" href="<?= url('/index.php?diag=1') ?>">Open index (normal)</a>
       <a class="px-3 py-1.5 rounded border" href="<?= url('/login.php') ?>">Login</a>
       <a class="px-3 py-1.5 rounded border" href="<?= url('/register.php') ?>">Register</a>

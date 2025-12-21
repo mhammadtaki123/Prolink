@@ -127,7 +127,7 @@ if ($review && empty($errors)) {
 <div class="max-w-xl mx-auto px-4 py-8">
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold">Leave a Review</h1>
-    <a href="<?= h(url('/user/booking-details.php?booking_id=' . (int)$booking_id)) ?>" class="text-sm text-purple-700 hover:underline">
+    <a href="<?= h(url('/user/booking-details.php?booking_id=' . (int)$booking_id)) ?>" class="text-sm text-blue-700 hover:underline">
       Back to booking
     </a>
   </div>
@@ -170,7 +170,7 @@ if ($review && empty($errors)) {
       <div>
         <label for="rating" class="block text-sm font-medium text-gray-700 mb-1">Rating</label>
         <select id="rating" name="rating" required
-                class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Select rating...</option>
           <?php for ($i = 5; $i >= 1; $i--): ?>
             <option value="<?= $i ?>" <?= (isset($rating) && (int)$rating === $i) ? 'selected' : '' ?>>
@@ -185,7 +185,7 @@ if ($review && empty($errors)) {
           Comment <span class="text-gray-400 text-xs">(optional)</span>
         </label>
         <textarea id="comment" name="comment" rows="4"
-                  class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Share your experience with this service..."><?= isset($comment) ? h($comment) : '' ?></textarea>
       </div>
 
@@ -195,7 +195,7 @@ if ($review && empty($errors)) {
           Cancel
         </a>
         <button type="submit"
-                class="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700">
+                class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
           Submit review
         </button>
       </div>

@@ -59,13 +59,13 @@ try {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-purple-50 min-h-screen">
+<body class="bg-blue-50 min-h-screen">
 <?php require_once __DIR__ . '/../partials/navbar.php'; ?>
 
 <div class="max-w-5xl mx-auto mt-6 bg-white rounded-2xl shadow p-6">
   <div class="flex items-center justify-between">
-    <h1 class="text-2xl font-bold text-purple-700">User Dashboard</h1>
-    <a href="<?= url('/user/browse-services.php') ?>" class="inline-block bg-purple-600 text-white px-4 py-2 rounded-lg">Browse Services</a>
+    <h1 class="text-2xl font-bold text-blue-700">User Dashboard</h1>
+    <a href="<?= url('/user/browse-services.php') ?>" class="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg">Browse Services</a>
   </div>
 
   <?php if ($db_error): ?>
@@ -75,8 +75,8 @@ try {
   <?php endif; ?>
 
   <div class="grid md:grid-cols-3 gap-4 mt-6">
-    <div class="rounded-xl p-6 bg-purple-100">
-      <p class="text-3xl font-extrabold text-purple-700"><?= $tot ?></p>
+    <div class="rounded-xl p-6 bg-blue-100">
+      <p class="text-3xl font-extrabold text-blue-700"><?= $tot ?></p>
       <p class="text-gray-600">Total Bookings</p>
     </div>
     <div class="rounded-xl p-6 bg-green-100">
@@ -93,7 +93,7 @@ try {
   <?php if ($rows && $rows->num_rows > 0): ?>
     <div class="overflow-x-auto">
       <table class="min-w-full text-sm border border-gray-200">
-        <thead class="bg-purple-100 text-purple-700">
+        <thead class="bg-blue-100 text-blue-700">
           <tr>
             <th class="p-2 border">ID</th>
             <th class="p-2 border">Service</th>
@@ -112,7 +112,7 @@ try {
             <td class="p-2 border">
               <?php if ($b['status'] === 'completed'): ?>
                 <a href="<?= url('/user/add-review.php?booking_id=' . $b['booking_id']) ?>"
-                   class="text-purple-700 hover:underline">Write Review</a>
+                   class="text-blue-700 hover:underline">Write Review</a>
               <?php else: ?>
                 <span class="text-gray-400">—</span>
               <?php endif; ?>

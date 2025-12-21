@@ -107,13 +107,13 @@ if ($st = $conn->prepare("
   <title>My Reviews - ProLink Worker</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-purple-50 min-h-screen">
+<body class="bg-blue-50 min-h-screen">
 <?php include $root . '/partials/navbar.php'; ?>
 
 <div class="max-w-6xl mx-auto px-4 py-8">
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold text-gray-900">My Reviews</h1>
-    <a href="<?= h(url('/dashboard/worker-dashboard.php')) ?>" class="text-sm text-purple-700 hover:underline">
+    <a href="<?= h(url('/dashboard/worker-dashboard.php')) ?>" class="text-sm text-blue-700 hover:underline">
       Back to dashboard
     </a>
   </div>
@@ -191,7 +191,7 @@ if ($st = $conn->prepare("
                 </div>
                 <h3 class="text-base font-semibold text-gray-900">
                   <a href="<?= h(url('/service.php?id=' . (int)$r['service_id'])) ?>"
-                     class="hover:text-purple-700 hover:underline">
+                     class="hover:text-blue-700 hover:underline">
                     <?= h($r['service_title']) ?>
                   </a>
                 </h3>

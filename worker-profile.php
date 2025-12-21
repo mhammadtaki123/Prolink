@@ -103,7 +103,7 @@ unset($_SESSION['error'], $_SESSION['success']);
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-purple-50 min-h-screen">
+<body class="bg-blue-50 min-h-screen">
 <?php include __DIR__ . '/partials/navbar.php'; ?>
 
 <div class="max-w-6xl mx-auto px-4 py-8">
@@ -121,7 +121,7 @@ unset($_SESSION['error'], $_SESSION['success']);
         <h1 class="text-2xl font-bold text-gray-900"><?= htmlspecialchars($worker['full_name']) ?></h1>
         <div class="mt-1 text-gray-700">
           <?php if (!empty($worker['skill_category'])): ?>
-            <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-sm"><?= htmlspecialchars($worker['skill_category']) ?></span>
+            <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-sm"><?= htmlspecialchars($worker['skill_category']) ?></span>
           <?php endif; ?>
           <?php if (!empty($worker['address'])): ?>
             <span class="ml-2 text-sm text-gray-600">· <?= htmlspecialchars($worker['address']) ?></span>
@@ -139,7 +139,7 @@ unset($_SESSION['error'], $_SESSION['success']);
 
       <div class="text-right">
         <?php if (!empty($worker['hourly_rate'])): ?>
-          <div class="text-2xl font-bold text-purple-700">$<?= htmlspecialchars((string)$worker['hourly_rate']) ?>/hr</div>
+          <div class="text-2xl font-bold text-blue-700">$<?= htmlspecialchars((string)$worker['hourly_rate']) ?>/hr</div>
           <div class="text-sm text-gray-500">Typical rate</div>
         <?php endif; ?>
       </div>
@@ -174,7 +174,7 @@ unset($_SESSION['error'], $_SESSION['success']);
           <div class="bg-white rounded-2xl shadow p-4 flex flex-col">
             <div class="flex-1">
               <div class="text-sm text-gray-500"><?= htmlspecialchars($s['category'] ?? '') ?></div>
-              <a class="block mt-1 text-lg font-semibold text-purple-700 hover:underline"
+              <a class="block mt-1 text-lg font-semibold text-blue-700 hover:underline"
                  href="<?= url('/service.php?id=' . $s['service_id']) ?>">
                 <?= htmlspecialchars($s['title']) ?>
               </a>
@@ -191,7 +191,7 @@ unset($_SESSION['error'], $_SESSION['success']);
             <div class="mt-3">
               <?php if (!empty($_SESSION['logged_in']) && $logged_in_role === 'user'): ?>
                 <a href="<?= url('/user/book-service.php?service_id=' . $s['service_id'] . '&worker_id=' . $worker_id) ?>"
-                   class="block text-center w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg">
+                   class="block text-center w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg">
                   Book Now
                 </a>
               <?php else: ?>
@@ -214,7 +214,7 @@ unset($_SESSION['error'], $_SESSION['success']);
           <?php if ($page > 1): ?>
             <a class="px-3 py-1 rounded bg-white shadow" href="<?= qs_wp(['page' => $page - 1]) ?>">Prev</a>
           <?php endif; ?>
-          <span class="px-3 py-1 rounded bg-purple-600 text-white"><?= $page ?></span>
+          <span class="px-3 py-1 rounded bg-blue-600 text-white"><?= $page ?></span>
           <?php if ($page < $pages): ?>
             <a class="px-3 py-1 rounded bg-white shadow" href="<?= qs_wp(['page' => $page + 1]) ?>">Next</a>
           <?php endif; ?>

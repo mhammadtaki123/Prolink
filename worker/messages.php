@@ -168,7 +168,7 @@ if ($activeUserId > 0) {
   <div class="max-w-6xl mx-auto px-4 py-8">
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold">Messages</h1>
-      <a href="<?= h(url('/dashboard/worker-dashboard.php')) ?>" class="text-sm text-purple-700 hover:underline">
+      <a href="<?= h(url('/dashboard/worker-dashboard.php')) ?>" class="text-sm text-blue-700 hover:underline">
         Back to dashboard
       </a>
     </div>
@@ -192,7 +192,7 @@ if ($activeUserId > 0) {
           Once users book your services, you can message them here.
         </p>
         <a href="<?= h(url('/worker/services.php')) ?>"
-           class="inline-flex items-center px-4 py-2 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-700">
+           class="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
           View my services
         </a>
       </div>
@@ -206,7 +206,7 @@ if ($activeUserId > 0) {
               <?php $isActive = ((int)$c['user_id'] === $activeUserId); ?>
               <a href="<?= h(url('/worker/messages.php?user_id=' . (int)$c['user_id'])) ?>"
                  class="flex items-center justify-between px-3 py-2 rounded-lg text-sm
-                        <?= $isActive ? 'bg-purple-50 text-purple-700 font-semibold border border-purple-200' : 'hover:bg-gray-50 text-gray-800' ?>">
+                        <?= $isActive ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-200' : 'hover:bg-gray-50 text-gray-800' ?>">
                 <span><?= h($c['full_name']) ?></span>
               </a>
             <?php endforeach; ?>
@@ -235,9 +235,9 @@ if ($activeUserId > 0) {
                   <?php $isMine = ($m['sender_role'] === 'worker'); ?>
                   <div class="flex <?= $isMine ? 'justify-end' : 'justify-start' ?>">
                     <div class="max-w-[75%] rounded-2xl px-3 py-2 text-sm
-                                <?= $isMine ? 'bg-purple-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-900 rounded-bl-none' ?>">
+                                <?= $isMine ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-900 rounded-bl-none' ?>">
                       <p><?= nl2br(h($m['body'])) ?></p>
-                      <div class="mt-1 text-[11px] opacity-80 <?= $isMine ? 'text-purple-100' : 'text-gray-500' ?>">
+                      <div class="mt-1 text-[11px] opacity-80 <?= $isMine ? 'text-blue-100' : 'text-gray-500' ?>">
                         <?= h(date('Y-m-d H:i', strtotime($m['created_at']))) ?>
                       </div>
                     </div>
@@ -252,14 +252,14 @@ if ($activeUserId > 0) {
               <input
                 type="text"
                 name="body"
-                class="flex-1 border rounded-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                class="flex-1 border rounded-full px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Type your message..."
                 autocomplete="off"
                 required
               >
               <button
                 type="submit"
-                class="inline-flex items-center justify-center px-4 py-2 rounded-full bg-purple-600 text-white text-sm hover:bg-purple-700">
+                class="inline-flex items-center justify-center px-4 py-2 rounded-full bg-blue-600 text-white text-sm hover:bg-blue-700">
                 Send
               </button>
             </form>

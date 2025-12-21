@@ -159,7 +159,7 @@ unset($_SESSION['error'], $_SESSION['success']);
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-purple-50 min-h-screen">
+<body class="bg-blue-50 min-h-screen">
 <?php require_once __DIR__ . '/../partials/navbar.php'; ?>
 
 <div class="max-w-3xl mx-auto px-4 py-8">
@@ -243,7 +243,7 @@ unset($_SESSION['error'], $_SESSION['success']);
       <?php endif; ?>
 
       <div class="flex gap-2">
-        <button class="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700">Save changes</button>
+        <button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Save changes</button>
         <a class="px-4 py-2 rounded bg-white border hover:bg-gray-50" href="<?= url('/dashboard/worker-dashboard.php') ?>">Cancel</a>
       </div>
     </form>
@@ -274,7 +274,7 @@ unset($_SESSION['error'], $_SESSION['success']);
       </div>
 
       <div class="flex gap-2">
-        <button class="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700">Change password</button>
+        <button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Change password</button>
         <a class="px-4 py-2 rounded bg-white border hover:bg-gray-50" href="<?= url('/dashboard/worker-dashboard.php') ?>">Cancel</a>
       </div>
     </form>
