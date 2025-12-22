@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Dec 14, 2025 at 11:40 AM
+-- Generation Time: Dec 22, 2025 at 12:56 PM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.2.4
 
@@ -66,7 +66,7 @@ CREATE TABLE `bookings` (
 INSERT INTO `bookings` (`booking_id`, `user_id`, `worker_id`, `service_id`, `status`, `booking_date`, `scheduled_at`, `notes`) VALUES
 (6, 1, 1, 15, 'accepted', '2025-10-31 11:47:31', NULL, NULL),
 (7, 1, 1, 14, 'completed', '2025-10-31 11:47:51', NULL, NULL),
-(9, 1, 1, 7, 'cancelled', '2025-10-31 13:31:35', NULL, NULL);
+(9, 1, 1, 7, 'pending', '2025-10-31 13:31:35', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -108,6 +108,14 @@ CREATE TABLE `messages` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `messages`
+--
+
+INSERT INTO `messages` (`message_id`, `booking_id`, `sender_role`, `sender_id`, `recipient_role`, `recipient_id`, `body`, `created_at`) VALUES
+(1, NULL, 'user', 1, 'worker', 1, 'hi', '2025-12-22 08:56:34'),
+(2, NULL, 'worker', 1, 'user', 1, 'hello', '2025-12-22 08:59:55');
+
 -- --------------------------------------------------------
 
 --
@@ -147,7 +155,9 @@ INSERT INTO `notifications` (`notification_id`, `recipient_role`, `recipient_id`
 (16, 'worker', 1, 'Booking #6 Status Updated', 'The status of your booking for \'Plumbing\' has been changed to \'pending\' by the admin.', 1, '2025-10-31 11:49:55'),
 (17, 'user', 1, 'Booking #9 Status Updated', 'The status of your booking for \'Lawn Mowing\' has been changed to \'cancelled\' by the admin.', 1, '2025-10-31 13:48:52'),
 (18, 'worker', 1, 'Booking #9 Status Updated', 'The status of your booking for \'Lawn Mowing\' has been changed to \'cancelled\' by the admin.', 1, '2025-10-31 13:48:52'),
-(19, 'worker', 1, 'New service submitted', 'You added “svd”. An admin can activate it.', 1, '2025-11-04 08:51:21');
+(19, 'worker', 1, 'New service submitted', 'You added “svd”. An admin can activate it.', 1, '2025-11-04 08:51:21'),
+(20, 'worker', 1, 'New message from a customer', 'You received a new message from a customer on ProLink.', 1, '2025-12-22 08:56:34'),
+(21, 'user', 1, 'New message from a worker', 'You received a new message from a worker on ProLink.', 0, '2025-12-22 08:59:55');
 
 -- --------------------------------------------------------
 
@@ -220,7 +230,7 @@ INSERT INTO `services` (`service_id`, `worker_id`, `title`, `description`, `cate
 (11, 1, 'Plumbing Repairs', 'Leak repair, faucet replacement, and emergency plumbing services.', 'Plumbing', 30.00, 'Sidon, Lebanon', 'active', '2025-10-31 11:44:25'),
 (12, 1, 'Cleaning Services', 'Residential and commercial cleaning, window washing, and sanitization.', 'Cleaning', 70.00, 'Dubai, United Arab Emirates', 'active', '2025-10-31 11:44:59'),
 (13, 1, 'Gardening', 'Landscaping, garden maintenance, and irrigation system setup.', 'Gardening', 120.00, 'Abu Dhabi, United Arab Emirates', 'active', '2025-10-31 11:45:23'),
-(14, 1, 'Electricalian', 'Licensed electrician for wiring, panel upgrades, and electrical safety assessments.', 'Electrician', 90.00, 'Dubai, United Arab Emirates', 'active', '2025-10-31 11:45:47'),
+(14, 1, 'Electrician', 'Licensed electrician for wiring, panel upgrades, and electrical safety assessments.', 'Electrician', 90.00, 'Dubai, United Arab Emirates', 'active', '2025-10-31 11:45:47'),
 (15, 1, 'Plumbing', 'Plumbing installations and emergency repairs, clogged drains, and water heater service.', 'Plumbing', 80.00, 'Sharjah, United Arab Emirates', 'active', '2025-10-31 11:46:12');
 
 -- --------------------------------------------------------
@@ -258,6 +268,7 @@ CREATE TABLE `users` (
   `password` varchar(255) NOT NULL,
   `phone` varchar(20) DEFAULT NULL,
   `address` varchar(255) DEFAULT NULL,
+  `profile_image` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -265,8 +276,8 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`user_id`, `full_name`, `email`, `password`, `phone`, `address`, `created_at`) VALUES
-(1, 'User_Mhammad', 'User_mhammad@gmail.com', '$2y$10$Onoi3DX7r8Ww1TQFY0k0S.IjOtd7MiE68i2cJlXQwf19L81hs5wh2', NULL, NULL, '2025-10-27 17:24:08');
+INSERT INTO `users` (`user_id`, `full_name`, `email`, `password`, `phone`, `address`, `profile_image`, `created_at`) VALUES
+(1, 'User_Mhammad', 'User_mhammad@gmail.com', '$2y$10$Onoi3DX7r8Ww1TQFY0k0S.IjOtd7MiE68i2cJlXQwf19L81hs5wh2', NULL, NULL, 'uploads/profiles/users/1.jpg', '2025-10-27 17:24:08');
 
 -- --------------------------------------------------------
 
@@ -314,15 +325,16 @@ CREATE TABLE `workers` (
   `bio` text DEFAULT NULL,
   `rating` float DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `status` enum('active','inactive') DEFAULT 'active'
+  `status` enum('active','inactive') DEFAULT 'active',
+  `profile_image` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `workers`
 --
 
-INSERT INTO `workers` (`worker_id`, `full_name`, `email`, `password`, `phone`, `skill_category`, `hourly_rate`, `bio`, `rating`, `created_at`, `status`) VALUES
-(1, 'Worker_Mhammad', 'Worker_mhammad@gmail.com', '$2y$10$wf1Qq2bVwyJU26sIKpEti.4einQba7MTZBZcOEFNTFQ7qp0IZXX/O', NULL, 'Outdoor', 10.00, 'Skilled in pool work', 0, '2025-10-27 17:27:31', 'active');
+INSERT INTO `workers` (`worker_id`, `full_name`, `email`, `password`, `phone`, `skill_category`, `hourly_rate`, `bio`, `rating`, `created_at`, `status`, `profile_image`) VALUES
+(1, 'Worker_Mhammad', 'Worker_mhammad@gmail.com', '$2y$10$wf1Qq2bVwyJU26sIKpEti.4einQba7MTZBZcOEFNTFQ7qp0IZXX/O', NULL, 'Outdoor', 10.00, 'Skilled in pool work', 0, '2025-10-27 17:27:31', 'active', 'uploads/profiles/workers/1.jpg');
 
 -- --------------------------------------------------------
 
@@ -459,13 +471,13 @@ ALTER TABLE `contact_messages`
 -- AUTO_INCREMENT for table `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `message_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `message_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `notification_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `notification_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `payments`

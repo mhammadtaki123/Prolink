@@ -5,460 +5,495 @@ session_start();
 $root = dirname(__DIR__);
 $cfg1 = $root . '/Lib/config.php';
 $cfg2 = $root . '/lib/config.php';
-if (file_exists($cfg1)) { require_once $cfg1; }
-elseif (file_exists($cfg2)) { require_once $cfg2; }
-else { http_response_code(500); echo 'config.php not found'; exit; }
+if (file_exists($cfg1)) {
+  require_once $cfg1;
+} elseif (file_exists($cfg2)) {
+  require_once $cfg2;
+} else {
+  http_response_code(500);
+  echo 'config.php not found';
+  exit;
+}
 
-if (!isset($conn) || !($conn instanceof mysqli)) { http_response_code(500); echo 'DB conn missing'; exit; }
+$baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '/Prolink';
 
-$baseUrl = defined('BASE_URL') ? rtrim((string)BASE_URL, '/') : '/Prolink';
+function h($s): string {
+  return htmlspecialchars((string)($s ?? ''), ENT_QUOTES, 'UTF-8');
+}
 
-if (empty($_SESSION['worker_id'])) {
+function go(string $path): void {
+  if (function_exists('redirect_to')) {
+    redirect_to($path);
+  }
+  global $baseUrl;
+  $path = '/' . ltrim($path, '/');
+  header('Location: ' . $baseUrl . $path);
+  exit;
+}
+
+function u(string $path): string {
+  if (function_exists('url')) return url($path);
+  global $baseUrl;
+  $path = '/' . ltrim($path, '/');
+  return $baseUrl . $path;
+}
+
+if (!isset($conn) || !($conn instanceof mysqli)) {
+  http_response_code(500);
+  echo 'DB connection missing.';
+  exit;
+}
+
+// Require worker login
+if (empty($_SESSION['worker_id']) || empty($_SESSION['logged_in']) || (($_SESSION['role'] ?? '') !== 'worker')) {
   header('Location: ' . $baseUrl . '/auth/worker-login.php');
   exit;
 }
+
 $worker_id = (int)$_SESSION['worker_id'];
-
-$hasProfileImageCol = function_exists('col_exists') ? col_exists($conn, 'workers', 'profile_image') : false;
-
-if (!function_exists('h')) {
-  function h($v): string { return htmlspecialchars((string)($v ?? ''), ENT_QUOTES, 'UTF-8'); }
+if ($worker_id <= 0) {
+  $_SESSION['error'] = 'Session expired. Please log in again.';
+  header('Location: ' . $baseUrl . '/auth/worker-login.php');
+  exit;
 }
 
-// CSRF
-if (empty($_SESSION['csrf_token'])) {
-  $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
-}
-$csrf = $_SESSION['csrf_token'];
+// Schema-safe flags (your schema currently includes all of these columns)
+$HAS_SKILL = function_exists('col_exists') ? col_exists($conn, 'workers', 'skill_category') : true;
+$HAS_RATE  = function_exists('col_exists') ? col_exists($conn, 'workers', 'hourly_rate') : true;
+$HAS_BIO   = function_exists('col_exists') ? col_exists($conn, 'workers', 'bio') : true;
+$HAS_PROFILE_IMAGE = function_exists('col_exists') ? col_exists($conn, 'workers', 'profile_image') : true;
 
-// Avatar helpers
-$avatarDir = $root . '/uploads/profiles/workers';
-$avatarRelBase = $baseUrl . '/uploads/profiles/workers';
-$allowedExts = ['jpg','jpeg','png','webp'];
+$uploadDirRel = 'uploads/profiles/workers';
+$uploadDirAbs = $root . '/' . $uploadDirRel;
 
-function avatar_from_db(?string $relPath, string $baseUrl): ?string {
-  $root = dirname(__DIR__);
-  $relPath = trim((string)$relPath);
-  if ($relPath === '') return null;
-  $relPath = ltrim($relPath, '/');
-  $fs = $root . '/' . $relPath;
-  if (!is_file($fs)) return null;
-  return rtrim($baseUrl, '/') . '/' . $relPath . '?v=' . @filemtime($fs);
-}
+function fetch_worker(mysqli $conn, int $worker_id, bool $HAS_SKILL, bool $HAS_RATE, bool $HAS_BIO, bool $HAS_PROFILE_IMAGE): ?array {
+  $cols = ['worker_id','full_name','email','phone'];
+  if ($HAS_SKILL) $cols[] = 'skill_category';
+  if ($HAS_RATE)  $cols[] = 'hourly_rate';
+  if ($HAS_BIO)   $cols[] = 'bio';
+  if ($HAS_PROFILE_IMAGE) $cols[] = 'profile_image';
 
-function current_avatar_for_worker(string $avatarDir, string $avatarRelBase, int $worker_id, array $allowedExts): ?string {
-  foreach ($allowedExts as $ext) {
-    $fs = $avatarDir . '/' . $worker_id . '.' . $ext;
-    if (is_file($fs)) return $avatarRelBase . '/' . $worker_id . '.' . $ext;
-  }
-  return null;
-}
-
-$avatarUrl = ($hasProfileImageCol && array_key_exists('profile_image', $worker))
-  ? avatar_from_db($worker['profile_image'] ?? null, $baseUrl)
-  : null;
-if (empty($avatarUrl)) {
-  $avatarUrl = current_avatar_for_worker($avatarDir, $avatarRelBase, $worker_id, $allowedExts);
+  $sel = implode(', ', $cols);
+  $st = $conn->prepare("SELECT $sel FROM workers WHERE worker_id=? LIMIT 1");
+  if (!$st) return null;
+  $st->bind_param('i', $worker_id);
+  $st->execute();
+  $row = $st->get_result()->fetch_assoc();
+  $st->close();
+  return $row ?: null;
 }
 
 // Handle POST actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $action = (string)($_POST['action'] ?? '');
-  $token  = (string)($_POST['csrf_token'] ?? '');
+  $action = $_POST['action'] ?? '';
 
-  if (!hash_equals($csrf, $token)) {
-    $_SESSION['error'] = 'Security check failed. Please try again.';
-    header('Location: ' . $baseUrl . '/worker/profile.php');
-    exit;
+  // Always load current worker for operations that depend on stored fields
+  $current = fetch_worker($conn, $worker_id, $HAS_SKILL, $HAS_RATE, $HAS_BIO, $HAS_PROFILE_IMAGE);
+  if (!$current) {
+    $_SESSION['error'] = 'Worker not found.';
+    go('/auth/worker-login.php');
   }
 
-  // Save profile
   if ($action === 'save_profile') {
-    $full_name     = trim((string)($_POST['full_name'] ?? ''));
-    $phone         = trim((string)($_POST['phone'] ?? ''));
-    $skill_category= trim((string)($_POST['skill_category'] ?? ''));
-    $hourly_rate   = trim((string)($_POST['hourly_rate'] ?? ''));
-    $bio           = trim((string)($_POST['bio'] ?? ''));
+    $full_name = trim($_POST['full_name'] ?? '');
+    $phone     = trim($_POST['phone'] ?? '');
+    $skill     = trim($_POST['skill_category'] ?? '');
+    $rate      = trim((string)($_POST['hourly_rate'] ?? ''));
+    $bio       = trim($_POST['bio'] ?? '');
 
     if ($full_name === '') {
       $_SESSION['error'] = 'Full name is required.';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+      go('/worker/profile.php');
     }
 
-    $rateVal = null;
-    if ($hourly_rate !== '') {
-      if (!is_numeric($hourly_rate) || (float)$hourly_rate < 0) {
+    $sets   = ['full_name=?', 'phone=?'];
+    $types  = 'ss';
+    $params = [$full_name, $phone];
+
+    if ($HAS_SKILL) { $sets[] = 'skill_category=?'; $types .= 's'; $params[] = $skill; }
+
+    if ($HAS_RATE) {
+      if ($rate !== '' && (!is_numeric($rate) || (float)$rate < 0)) {
         $_SESSION['error'] = 'Hourly rate must be a non-negative number.';
-        header('Location: ' . $baseUrl . '/worker/profile.php');
-        exit;
+        go('/worker/profile.php');
       }
-      $rateVal = (float)$hourly_rate;
+      // allow empty => NULL
+      if ($rate === '') {
+        $sets[] = 'hourly_rate=NULL';
+      } else {
+        $sets[] = 'hourly_rate=?';
+        $types .= 'd';
+        $params[] = (float)$rate;
+      }
     }
 
-    $st = $conn->prepare('UPDATE workers SET full_name=?, phone=?, skill_category=?, hourly_rate=?, bio=? WHERE worker_id=?');
-    // hourly_rate may be NULL
-    if ($rateVal === null) {
-      $null = null;
-      $st->bind_param('sssssi', $full_name, $phone, $skill_category, $null, $bio, $worker_id);
-    } else {
-      $rateStr = (string)$rateVal;
-      $st->bind_param('sssssi', $full_name, $phone, $skill_category, $rateStr, $bio, $worker_id);
+    if ($HAS_BIO) { $sets[] = 'bio=?'; $types .= 's'; $params[] = $bio; }
+
+    $sql = 'UPDATE workers SET ' . implode(', ', $sets) . ' WHERE worker_id=?';
+    $types .= 'i';
+    $params[] = $worker_id;
+
+    $st = $conn->prepare($sql);
+    if (!$st) {
+      $_SESSION['error'] = 'System error. Please try again.';
+      error_log('Worker profile update prepare failed: ' . $conn->error);
+      go('/worker/profile.php');
     }
 
+    $st->bind_param($types, ...$params);
     if (!$st->execute()) {
       $_SESSION['error'] = 'Could not update profile.';
+      error_log('Worker profile update execute failed: ' . $st->error);
       $st->close();
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+      go('/worker/profile.php');
     }
     $st->close();
 
+    // keep navbar name consistent if used
+    $_SESSION['worker_name'] = $full_name;
+
     $_SESSION['success'] = 'Profile updated successfully.';
-    header('Location: ' . $baseUrl . '/worker/profile.php');
-    exit;
+    go('/worker/profile.php');
   }
 
-  // Change password
   if ($action === 'change_password') {
-    $current = (string)($_POST['current_password'] ?? '');
-    $new     = (string)($_POST['new_password'] ?? '');
-    $confirm = (string)($_POST['confirm_password'] ?? '');
+    $current_pw = (string)($_POST['current_password'] ?? '');
+    $new_pw     = (string)($_POST['new_password'] ?? '');
+    $confirm_pw = (string)($_POST['confirm_password'] ?? '');
 
-    if (strlen($new) < 6) {
+    if ($new_pw === '' || strlen($new_pw) < 6) {
       $_SESSION['error'] = 'New password must be at least 6 characters.';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+      go('/worker/profile.php');
     }
-    if ($new !== $confirm) {
+    if ($new_pw !== $confirm_pw) {
       $_SESSION['error'] = 'New password and confirmation do not match.';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+      go('/worker/profile.php');
     }
 
     $st = $conn->prepare('SELECT password FROM workers WHERE worker_id=? LIMIT 1');
+    if (!$st) {
+      $_SESSION['error'] = 'System error. Please try again.';
+      error_log('Worker password select prepare failed: ' . $conn->error);
+      go('/worker/profile.php');
+    }
+
     $st->bind_param('i', $worker_id);
     $st->execute();
     $row = $st->get_result()->fetch_assoc();
     $st->close();
 
-    $stored = (string)($row['password'] ?? '');
-    if ($stored === '' || !password_verify($current, $stored)) {
+    if (!$row || !password_verify($current_pw, (string)$row['password'])) {
       $_SESSION['error'] = 'Current password is incorrect.';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+      go('/worker/profile.php');
     }
 
-    $hash = password_hash($new, PASSWORD_DEFAULT);
+    $hash = password_hash($new_pw, PASSWORD_DEFAULT);
     $up = $conn->prepare('UPDATE workers SET password=? WHERE worker_id=?');
+    if (!$up) {
+      $_SESSION['error'] = 'System error. Please try again.';
+      error_log('Worker password update prepare failed: ' . $conn->error);
+      go('/worker/profile.php');
+    }
+
     $up->bind_param('si', $hash, $worker_id);
     if (!$up->execute()) {
       $_SESSION['error'] = 'Could not change password.';
+      error_log('Worker password update execute failed: ' . $up->error);
       $up->close();
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+      go('/worker/profile.php');
     }
     $up->close();
 
     $_SESSION['success'] = 'Password changed successfully.';
-    header('Location: ' . $baseUrl . '/worker/profile.php');
-    exit;
+    go('/worker/profile.php');
   }
 
-  // Upload photo
   if ($action === 'upload_photo') {
-    // Ensure upload directory exists and is writable
-    if (!is_dir($avatarDir) && !@mkdir($avatarDir, 0775, true)) {
-      $_SESSION['error'] = 'Upload folder is missing. Create: Prolink/uploads/profiles/workers/';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
-    }
-    if (!is_writable($avatarDir)) {
-      $_SESSION['error'] = 'Upload folder is not writable. Make writable: Prolink/uploads/profiles/workers/';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+    if (!$HAS_PROFILE_IMAGE) {
+      $_SESSION['error'] = 'Profile photo is not supported by your current database schema.';
+      go('/worker/profile.php');
     }
 
-    if (empty($_FILES['avatar']) || !isset($_FILES['avatar']['error'])) {
-      $_SESSION['error'] = 'Please choose an image to upload.';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+    if (!is_dir($uploadDirAbs)) {
+      @mkdir($uploadDirAbs, 0775, true);
+    }
+    if (!is_dir($uploadDirAbs)) {
+      $_SESSION['error'] = 'Upload folder is missing: ' . $uploadDirRel;
+      go('/worker/profile.php');
+    }
+    if (!is_writable($uploadDirAbs)) {
+      $_SESSION['error'] = 'Upload folder is not writable. Make writable: Prolink/' . $uploadDirRel . '/';
+      go('/worker/profile.php');
     }
 
-    if ((int)$_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {
+    if (empty($_FILES['profile_photo']) || !is_array($_FILES['profile_photo'])) {
+      $_SESSION['error'] = 'No file uploaded.';
+      go('/worker/profile.php');
+    }
+
+    $f = $_FILES['profile_photo'];
+    if (($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
       $_SESSION['error'] = 'Upload failed. Please try again.';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+      go('/worker/profile.php');
     }
 
-    if ((int)$_FILES['avatar']['size'] > 2 * 1024 * 1024) {
-      $_SESSION['error'] = 'Image is too large (max 2MB).';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+    $tmp = $f['tmp_name'] ?? '';
+    if (!is_string($tmp) || $tmp === '' || !is_uploaded_file($tmp)) {
+      $_SESSION['error'] = 'Invalid upload.';
+      go('/worker/profile.php');
     }
 
-    $tmp = (string)$_FILES['avatar']['tmp_name'];
-    $info = @getimagesize($tmp);
-    if (!$info || empty($info['mime'])) {
-      $_SESSION['error'] = 'Invalid image file.';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
-    }
+    // Validate type
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime  = $finfo ? finfo_file($finfo, $tmp) : '';
+    if ($finfo) finfo_close($finfo);
 
-    $mime = (string)$info['mime'];
-    $ext = match ($mime) {
-      'image/jpeg' => 'jpg',
-      'image/png'  => 'png',
-      'image/webp' => 'webp',
-      default      => ''
-    };
+    $ext = null;
+    if ($mime === 'image/jpeg') $ext = 'jpg';
+    elseif ($mime === 'image/png') $ext = 'png';
+    elseif ($mime === 'image/webp') $ext = 'webp';
 
-    if ($ext === '') {
+    if (!$ext) {
       $_SESSION['error'] = 'Only JPG, PNG, or WEBP images are allowed.';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+      go('/worker/profile.php');
     }
 
-    // Remove previous avatars for this worker
-    foreach ($allowedExts as $e) {
-      $old = $avatarDir . '/' . $worker_id . '.' . $e;
-      if (is_file($old)) @unlink($old);
+    // Limit size: 3MB
+    $size = (int)($f['size'] ?? 0);
+    if ($size <= 0 || $size > 3 * 1024 * 1024) {
+      $_SESSION['error'] = 'Image must be under 3MB.';
+      go('/worker/profile.php');
     }
 
-    $destFs = $avatarDir . '/' . $worker_id . '.' . $ext;
-    $destRel = 'uploads/profiles/workers/' . $worker_id . '.' . $ext;
+    $filename = $worker_id . '.' . $ext;
+    $destAbs  = $uploadDirAbs . '/' . $filename;
+    $destRel  = $uploadDirRel . '/' . $filename;
 
-    if (!@move_uploaded_file($tmp, $destFs)) {
-      $_SESSION['error'] = 'Could not save the uploaded file. (Check folder permissions: Prolink/uploads/profiles/workers/)';
-      header('Location: ' . $baseUrl . '/worker/profile.php');
-      exit;
+    if (!move_uploaded_file($tmp, $destAbs)) {
+      $_SESSION['error'] = 'Could not save the uploaded file.';
+      go('/worker/profile.php');
     }
 
-    // Store path in DB if column exists
-    if ($hasProfileImageCol) {
-      $st = $conn->prepare('UPDATE workers SET profile_image=? WHERE worker_id=?');
-      if ($st) {
-        $st->bind_param('si', $destRel, $worker_id);
-        if (!$st->execute()) {
-          @unlink($destFs);
-          $_SESSION['error'] = 'Could not save profile photo in database.';
-          $st->close();
-          header('Location: ' . $baseUrl . '/worker/profile.php');
-          exit;
-        }
-        $st->close();
-      }
+    // If an old image exists and differs, delete it
+    $old = (string)($current['profile_image'] ?? '');
+    if ($old !== '' && $old !== $destRel) {
+      $oldAbs = $root . '/' . ltrim($old, '/');
+      if (is_file($oldAbs)) @unlink($oldAbs);
     }
+
+    $st = $conn->prepare('UPDATE workers SET profile_image=? WHERE worker_id=?');
+    if (!$st) {
+      $_SESSION['error'] = 'System error. Please try again.';
+      error_log('Worker photo update prepare failed: ' . $conn->error);
+      go('/worker/profile.php');
+    }
+
+    $st->bind_param('si', $destRel, $worker_id);
+    if (!$st->execute()) {
+      $_SESSION['error'] = 'Could not save photo in database.';
+      error_log('Worker photo update execute failed: ' . $st->error);
+      $st->close();
+      go('/worker/profile.php');
+    }
+    $st->close();
 
     $_SESSION['success'] = 'Profile photo updated.';
-    header('Location: ' . $baseUrl . '/worker/profile.php');
-    exit;
+    go('/worker/profile.php');
   }
 
-  // Remove photo
   if ($action === 'remove_photo') {
-    foreach ($allowedExts as $e) {
-      $fs = $avatarDir . '/' . $worker_id . '.' . $e;
-      if (is_file($fs)) @unlink($fs);
+    if (!$HAS_PROFILE_IMAGE) {
+      $_SESSION['error'] = 'Profile photo is not supported by your current database schema.';
+      go('/worker/profile.php');
     }
-    if ($hasProfileImageCol) {
-      $st = $conn->prepare('UPDATE workers SET profile_image=NULL WHERE worker_id=?');
-      if ($st) {
-        $st->bind_param('i', $worker_id);
-        @$st->execute();
-        $st->close();
-      }
+
+    $old = (string)($current['profile_image'] ?? '');
+    if ($old !== '') {
+      $oldAbs = $root . '/' . ltrim($old, '/');
+      if (is_file($oldAbs)) @unlink($oldAbs);
     }
+
+    $st = $conn->prepare('UPDATE workers SET profile_image=NULL WHERE worker_id=?');
+    if ($st) {
+      $st->bind_param('i', $worker_id);
+      $st->execute();
+      $st->close();
+    }
+
     $_SESSION['success'] = 'Profile photo removed.';
-    header('Location: ' . $baseUrl . '/worker/profile.php');
-    exit;
+    go('/worker/profile.php');
   }
 
-  header('Location: ' . $baseUrl . '/worker/profile.php');
-  exit;
+  // Unknown action
+  go('/worker/profile.php');
 }
 
-// Load worker
-$sql = $hasProfileImageCol
-  ? 'SELECT worker_id, full_name, email, phone, skill_category, hourly_rate, bio, rating, status, profile_image FROM workers WHERE worker_id=? LIMIT 1'
-  : 'SELECT worker_id, full_name, email, phone, skill_category, hourly_rate, bio, rating, status FROM workers WHERE worker_id=? LIMIT 1';
-
-$st = $conn->prepare($sql);
-$st->bind_param('i', $worker_id);
-$st->execute();
-$worker = $st->get_result()->fetch_assoc();
-$st->close();
-
+$worker = fetch_worker($conn, $worker_id, $HAS_SKILL, $HAS_RATE, $HAS_BIO, $HAS_PROFILE_IMAGE);
 if (!$worker) {
-  http_response_code(404);
-  echo 'Worker not found';
+  $_SESSION['error'] = 'Worker not found.';
+  header('Location: ' . $baseUrl . '/auth/worker-login.php');
   exit;
 }
 
-// Flash
-$flash_ok  = $_SESSION['success'] ?? '';
-$flash_err = $_SESSION['error'] ?? '';
-unset($_SESSION['success'], $_SESSION['error']);
+$flash_err = $_SESSION['error'] ?? null;
+$flash_ok  = $_SESSION['success'] ?? null;
+unset($_SESSION['error'], $_SESSION['success']);
 
-$avatarUrl = current_avatar_for_worker($avatarDir, $avatarRelBase, $worker_id, $allowedExts);
-$displayName = (string)($worker['full_name'] ?? 'Worker');
-$initials = '';
-foreach (preg_split('/\s+/', trim(str_replace('_',' ', $displayName))) as $p) {
-  if ($p === '') continue;
-  $initials .= strtoupper(substr($p, 0, 1));
-  if (strlen($initials) >= 2) break;
-}
-if ($initials === '') $initials = 'W';
+$photoRel = (string)($worker['profile_image'] ?? '');
+$photoAbs = $photoRel !== '' ? ($root . '/' . ltrim($photoRel, '/')) : '';
+$hasPhoto = ($photoRel !== '' && is_file($photoAbs));
 ?>
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Worker Profile • ProLink</title>
+  <meta charset="utf-8">
+  <title>Your Worker Profile — ProLink</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 min-h-screen">
-  <?php include $root . '/partials/navbar.php'; ?>
+<body class="bg-purple-50 min-h-screen">
+<?php require_once $root . '/partials/navbar.php'; ?>
 
-  <div class="max-w-4xl mx-auto px-4 py-8">
-    <div class="flex items-start justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-900">Your Worker Profile</h1>
-        <p class="text-sm text-gray-600">Manage your account details and profile photo.</p>
-      </div>
-      <a href="<?= h($baseUrl) ?>/worker/services.php" class="text-sm px-4 py-2 rounded-lg bg-white border hover:bg-gray-50">Back to dashboard</a>
-    </div>
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold text-gray-900">Your Worker Profile</h1>
+    <a class="px-3 py-1 rounded bg-white border hover:bg-gray-50 text-sm" href="<?= h($baseUrl) ?>/worker/services.php">Back</a>
+  </div>
 
-    <?php if ($flash_ok): ?>
-      <div class="mb-4 bg-green-50 border border-green-200 text-green-700 rounded-lg p-3"><?= h($flash_ok) ?></div>
-    <?php endif; ?>
-    <?php if ($flash_err): ?>
-      <div class="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg p-3"><?= h($flash_err) ?></div>
-    <?php endif; ?>
+  <?php if ($flash_ok): ?>
+    <div class="mb-4 p-3 rounded bg-green-100 text-green-800"><?= h($flash_ok) ?></div>
+  <?php endif; ?>
+  <?php if ($flash_err): ?>
+    <div class="mb-4 p-3 rounded bg-red-100 text-red-800"><?= h($flash_err) ?></div>
+  <?php endif; ?>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Left: Avatar card -->
-      <div class="bg-white rounded-2xl shadow p-6">
-        <div class="flex items-center gap-4">
-          <?php if ($avatarUrl): ?>
-            <img src="<?= h($avatarUrl) ?>" alt="Profile photo" class="w-16 h-16 rounded-full object-cover border" />
-          <?php else: ?>
-            <div class="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-lg font-semibold"><?= h($initials) ?></div>
-          <?php endif; ?>
-          <div>
-            <div class="text-sm text-gray-500">Welcome back</div>
-            <div class="font-semibold text-gray-900"><?= h($displayName) ?></div>
-            <div class="text-xs text-gray-500">Rating: <?= h((string)($worker['rating'] ?? '0')) ?> • Status: <?= h((string)($worker['status'] ?? 'active')) ?></div>
-          </div>
-        </div>
-
-        <form class="mt-5" method="post" enctype="multipart/form-data">
-          <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>" />
-          <input type="hidden" name="action" value="upload_photo" />
-
-          <label class="block text-sm font-medium text-gray-700 mb-2">Profile photo</label>
-          <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp" class="block w-full text-sm" />
-
-          <div class="mt-3 flex gap-2">
-            <button class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium" type="submit">Upload</button>
-          </div>
-        </form>
-
-        <?php if ($avatarUrl): ?>
-          <form class="mt-2" method="post">
-            <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>" />
-            <input type="hidden" name="action" value="remove_photo" />
-            <button class="w-full bg-white border hover:bg-gray-50 rounded-lg py-2 text-sm" type="submit">Remove photo</button>
-          </form>
+  <!-- Profile photo -->
+  <div class="bg-white rounded-2xl shadow p-6 mb-6">
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-full overflow-hidden border bg-gray-100 flex items-center justify-center">
+        <?php if ($hasPhoto): ?>
+          <img src="<?= h($baseUrl . '/' . ltrim($photoRel,'/')) ?>" class="w-full h-full object-cover" alt="Profile Photo">
+        <?php else: ?>
+          <span class="text-gray-500 font-semibold text-lg">
+            <?php
+              $n = trim((string)($worker['full_name'] ?? 'W'));
+              $parts = preg_split('/\s+/', $n);
+              $initials = strtoupper(substr($parts[0] ?? 'W', 0, 1) . substr($parts[1] ?? '', 0, 1));
+              echo h($initials ?: 'W');
+            ?>
+          </span>
         <?php endif; ?>
       </div>
 
-      <!-- Right: Forms -->
-      <div class="lg:col-span-2 space-y-6">
-        <!-- Profile -->
-        <div class="bg-white rounded-2xl shadow p-6">
-          <h2 class="text-lg font-semibold text-gray-900">Account details</h2>
-          <p class="text-sm text-gray-600">Update your contact info and professional details.</p>
-
-          <form class="mt-4 space-y-4" method="post">
-            <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>" />
-            <input type="hidden" name="action" value="save_profile" />
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Full name <span class="text-red-600">*</span></label>
-              <input name="full_name" required maxlength="100" value="<?= h($worker['full_name'] ?? '') ?>" class="mt-1 w-full border rounded-lg px-3 py-2" />
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Email</label>
-                <input value="<?= h($worker['email'] ?? '') ?>" disabled class="mt-1 w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed" />
-                <p class="text-xs text-gray-500 mt-1">Email is read-only.</p>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Phone</label>
-                <input name="phone" value="<?= h($worker['phone'] ?? '') ?>" class="mt-1 w-full border rounded-lg px-3 py-2" />
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Skill category</label>
-              <input name="skill_category" value="<?= h($worker['skill_category'] ?? '') ?>" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="e.g., Outdoor, Cleaning, Repairs" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Hourly rate (USD)</label>
-              <input name="hourly_rate" type="number" step="0.01" min="0" value="<?= h((string)($worker['hourly_rate'] ?? '')) ?>" class="mt-1 w-full border rounded-lg px-3 py-2" />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Bio</label>
-              <textarea name="bio" rows="5" class="mt-1 w-full border rounded-lg px-3 py-2" placeholder="Tell customers about your experience."><?= h($worker['bio'] ?? '') ?></textarea>
-            </div>
-
-            <div class="flex gap-2">
-              <button class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium" type="submit">Save changes</button>
-              <a class="bg-white border hover:bg-gray-50 rounded-lg px-4 py-2 text-sm" href="<?= h($baseUrl) ?>/worker/services.php">Cancel</a>
-            </div>
-          </form>
-        </div>
-
-        <!-- Password -->
-        <div class="bg-white rounded-2xl shadow p-6">
-          <h2 class="text-lg font-semibold text-gray-900">Change password</h2>
-          <p class="text-sm text-gray-600">Enter your current password, then choose a new one.</p>
-
-          <form class="mt-4 space-y-4" method="post">
-            <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>" />
-            <input type="hidden" name="action" value="change_password" />
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Current password</label>
-              <input type="password" name="current_password" required class="mt-1 w-full border rounded-lg px-3 py-2" />
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700">New password</label>
-                <input type="password" name="new_password" required minlength="6" class="mt-1 w-full border rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700">Confirm new password</label>
-                <input type="password" name="confirm_password" required minlength="6" class="mt-1 w-full border rounded-lg px-3 py-2" />
-              </div>
-            </div>
-
-            <div class="flex gap-2">
-              <button class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm font-medium" type="submit">Change password</button>
-              <a class="bg-white border hover:bg-gray-50 rounded-lg px-4 py-2 text-sm" href="<?= h($baseUrl) ?>/worker/services.php">Cancel</a>
-            </div>
-          </form>
-        </div>
+      <div class="flex-1">
+        <div class="font-semibold text-gray-900">Profile photo</div>
+        <div class="text-sm text-gray-600">Upload a JPG, PNG, or WEBP (max 3MB).</div>
       </div>
+    </div>
+
+    <div class="mt-4 grid md:grid-cols-2 gap-4">
+      <form method="post" enctype="multipart/form-data" action="<?= u('/worker/profile.php') ?>" class="flex items-center gap-3">
+        <input type="hidden" name="action" value="upload_photo">
+        <input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp" class="block w-full text-sm" required>
+        <button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Upload</button>
+      </form>
+
+      <form method="post" action="<?= u('/worker/profile.php') ?>" class="flex items-center justify-end">
+        <input type="hidden" name="action" value="remove_photo">
+        <button class="px-4 py-2 rounded border bg-white hover:bg-gray-50" type="submit" <?= $hasPhoto ? '' : 'disabled' ?>>Remove photo</button>
+      </form>
     </div>
   </div>
 
-  <?php include $root . '/partials/footer.php'; ?>
+  <!-- Account details -->
+  <div class="bg-white rounded-2xl shadow p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-900">Account details</h2>
+    <p class="text-sm text-gray-600">Update your worker profile details.</p>
+
+    <form class="mt-4 space-y-4" method="post" action="<?= u('/worker/profile.php') ?>">
+      <input type="hidden" name="action" value="save_profile">
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Full name <span class="text-red-600">*</span></label>
+        <input name="full_name" required maxlength="120" value="<?= h($worker['full_name'] ?? '') ?>"
+               class="mt-1 w-full border rounded px-3 py-2" />
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Email</label>
+          <input value="<?= h($worker['email'] ?? '') ?>" disabled
+                 class="mt-1 w-full border rounded px-3 py-2 bg-gray-100 text-gray-600 cursor-not-allowed" />
+          <p class="text-xs text-gray-500 mt-1">Email is read-only.</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Phone</label>
+          <input name="phone" maxlength="25" value="<?= h($worker['phone'] ?? '') ?>"
+                 class="mt-1 w-full border rounded px-3 py-2" />
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <?php if ($HAS_SKILL): ?>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Skill category</label>
+            <input name="skill_category" maxlength="120" value="<?= h($worker['skill_category'] ?? '') ?>"
+                   class="mt-1 w-full border rounded px-3 py-2" />
+          </div>
+        <?php endif; ?>
+
+        <?php if ($HAS_RATE): ?>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Hourly rate</label>
+            <input name="hourly_rate" inputmode="decimal" value="<?= h($worker['hourly_rate'] ?? '') ?>"
+                   class="mt-1 w-full border rounded px-3 py-2" placeholder="e.g. 25" />
+          </div>
+        <?php endif; ?>
+      </div>
+
+      <?php if ($HAS_BIO): ?>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Bio</label>
+          <textarea name="bio" rows="4" class="mt-1 w-full border rounded px-3 py-2"><?= h($worker['bio'] ?? '') ?></textarea>
+        </div>
+      <?php endif; ?>
+
+      <div class="flex gap-3">
+        <button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Save changes</button>
+        <a class="px-4 py-2 rounded border bg-white hover:bg-gray-50" href="<?= h($baseUrl) ?>/worker/services.php">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Change password -->
+  <div class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-lg font-semibold text-gray-900">Change password</h2>
+    <p class="text-sm text-gray-600">Use a strong password you do not reuse elsewhere.</p>
+
+    <form class="mt-4 space-y-4" method="post" action="<?= u('/worker/profile.php') ?>">
+      <input type="hidden" name="action" value="change_password">
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Current password</label>
+        <input type="password" name="current_password" required class="mt-1 w-full border rounded px-3 py-2" />
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">New password</label>
+          <input type="password" name="new_password" required minlength="6" class="mt-1 w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Confirm new password</label>
+          <input type="password" name="confirm_password" required minlength="6" class="mt-1 w-full border rounded px-3 py-2" />
+        </div>
+      </div>
+
+      <button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Update password</button>
+    </form>
+  </div>
+
+</div>
 </body>
 </html>
