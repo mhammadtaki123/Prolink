@@ -1,8 +1,5 @@
 <?php
-/**
- * ProLink - Admin: Manage Users (fixed prepare/bind)
- * Path: /Prolink/admin/manage-users.php
- */
+
 session_start();
 $root = dirname(__DIR__);
 $cfg1 = $root . '/Lib/config.php';
@@ -96,7 +93,7 @@ $totalPages = (int)ceil(max(1, $total) / $perPage);
     <?php else: ?>
       <div class="bg-white rounded-xl shadow divide-y">
         <?php foreach ($rows as $u): ?>
-          <div class="p-4 grid grid-cols-1 md:grid-cols-4 gap-2">
+          <div class="p-4 grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
             <div><strong>#<?= (int)$u['user_id'] ?></strong></div>
             <div>
               <div class="font-medium"><?= h($u['full_name'] ?? '—') ?></div>
@@ -108,6 +105,14 @@ $totalPages = (int)ceil(max(1, $total) / $perPage);
             </div>
             <div class="text-sm text-gray-600">
               Joined: <?= h($u['created_at'] ?? '') ?>
+            </div>
+            <div class="flex md:justify-end">
+              <a
+                class="inline-flex items-center px-3 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
+                href="<?= $baseUrl ?>/admin/edit-user.php?id=<?= (int)$u['user_id'] ?>"
+              >
+                Edit
+              </a>
             </div>
           </div>
         <?php endforeach; ?>

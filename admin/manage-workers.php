@@ -1,8 +1,5 @@
 <?php
-/**
- * ProLink - Admin: Manage Workers (fixed prepare/bind)
- * Path: /Prolink/admin/manage-workers.php
- */
+
 session_start();
 $root = dirname(__DIR__);
 $cfg1 = $root . '/Lib/config.php';
@@ -93,7 +90,7 @@ $totalPages = (int)ceil(max(1, $total) / $perPage);
     <?php else: ?>
       <div class="bg-white rounded-xl shadow divide-y">
         <?php foreach ($rows as $w): ?>
-          <div class="p-4 grid grid-cols-1 md:grid-cols-5 gap-2">
+          <div class="p-4 grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
             <div><strong>#<?= (int)$w['worker_id'] ?></strong></div>
             <div>
               <div class="font-medium"><?= h($w['full_name'] ?? '—') ?></div>
@@ -105,6 +102,14 @@ $totalPages = (int)ceil(max(1, $total) / $perPage);
             </div>
             <div class="text-sm text-gray-700">$<?= $w['hourly_rate'] !== null ? number_format((float)$w['hourly_rate'], 2) : '—' ?></div>
             <div class="text-sm text-gray-600">Joined: <?= h($w['created_at'] ?? '') ?></div>
+            <div class="flex md:justify-end">
+              <a
+                class="inline-flex items-center px-3 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
+                href="<?= $baseUrl ?>/admin/edit-worker.php?id=<?= (int)$w['worker_id'] ?>"
+              >
+                Edit
+              </a>
+            </div>
           </div>
         <?php endforeach; ?>
       </div>

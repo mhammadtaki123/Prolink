@@ -227,6 +227,7 @@ $btnId  = 'plMenuBtn_' . substr(md5(__FILE__), 0, 8);
         <a href="<?= $baseUrl ?>/admin/manage-bookings.php" class="block text-sm">Manage Bookings</a>
         <a href="<?= $baseUrl ?>/admin/manage-users.php" class="block text-sm">Users</a>
         <a href="<?= $baseUrl ?>/admin/manage-workers.php" class="block text-sm">Workers</a>
+        <a href="<?= $baseUrl ?>/admin/manage-reviews.php" class="block text-sm">Manage Reviews</a>
         <a href="<?= $baseUrl ?>/admin/contact-messages.php" class="block text-sm">Contact Messages</a>
         <a href="<?= $baseUrl ?>/admin/payments.php" class="block text-sm">Payments</a>
         <a href="<?= $baseUrl ?>/admin/view-notifications.php" class="block text-sm">Notifications</a>

@@ -1,148 +1,251 @@
 <?php
-// /admin/edit-worker.php
+
 session_start();
-require_once __DIR__ . '/../Lib/config.php';
-if (empty($_SESSION['logged_in']) || ($_SESSION['role'] ?? '') !== 'admin') redirect_to('/login.php');
 
-$worker_id = (int)($_GET['id'] ?? 0);
-if ($worker_id <= 0) redirect_to('/admin/manage-workers.php?err=Missing%20worker%20id');
+$root = dirname(__DIR__);
+$cfg1 = $root . '/Lib/config.php';
+$cfg2 = $root . '/lib/config.php';
+if (file_exists($cfg1)) { require_once $cfg1; }
+elseif (file_exists($cfg2)) { require_once $cfg2; }
+else { http_response_code(500); exit('config.php not found'); }
 
-// helpers
-function col_exists(mysqli $conn, string $table, string $col): bool {
-  $sql="SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=? LIMIT 1";
-  $st=$conn->prepare($sql); $st->bind_param('ss',$table,$col); $st->execute();
-  $ok=(bool)$st->get_result()->fetch_row(); $st->close(); return $ok;
+$baseUrl = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '/Prolink';
+
+// Admin auth
+if (empty($_SESSION['admin_id']) && (empty($_SESSION['logged_in']) || ($_SESSION['role'] ?? '') !== 'admin')) {
+  $next = $baseUrl . '/admin/edit-worker.php' . (isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== '' ? ('?' . $_SERVER['QUERY_STRING']) : '');
+  header('Location: ' . $baseUrl . '/admin/login.php?next=' . urlencode($next));
+  exit;
 }
-$HAS_SKILL=col_exists($conn,'workers','skill_category');
-$HAS_RATE=col_exists($conn,'workers','hourly_rate');
-$ADDR_COL= col_exists($conn,'workers','address') ? 'address' : (col_exists($conn,'workers','location') ? 'location' : null);
-$HAS_BIO =col_exists($conn,'workers','bio');
 
-// POST
-if ($_SERVER['REQUEST_METHOD']==='POST'){
-  $action=$_POST['action']??'';
-  if ($action==='save'){
-    $full=trim($_POST['full_name']??'');
-    $phone=trim($_POST['phone']??'');
-    $skill=trim($_POST['skill_category']??'');
-    $rate =$_POST['hourly_rate']??'';
-    $addr =trim($_POST['address']??'');
-    $bio  =trim($_POST['bio']??'');
+if (!isset($conn) || !($conn instanceof mysqli)) {
+  http_response_code(500);
+  exit('DB connection missing');
+}
 
-    if ($full==='') redirect_to('/admin/edit-worker.php?id='.$worker_id.'&err=Full%20name%20required');
+function h($s): string { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
-    $sets=['full_name=?','phone=?']; $types='ss'; $params=[$full,$phone];
-    if ($HAS_SKILL){ $sets[]='skill_category=?'; $types.='s'; $params[]=$skill; }
-    if ($HAS_RATE){
-      if ($rate!=='' && (!is_numeric($rate) || (float)$rate<0)) redirect_to('/admin/edit-worker.php?id='.$worker_id.'&err=Invalid%20hourly%20rate');
-      if ($rate==='') { $sets[]='hourly_rate=NULL'; }
-      else { $sets[]='hourly_rate=?'; $types.='d'; $params[]=(float)$rate; }
+$worker_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($worker_id <= 0) {
+  header('Location: ' . $baseUrl . '/admin/manage-workers.php?err=' . urlencode('Missing worker id'));
+  exit;
+}
+
+$hasSkill  = function_exists('col_exists') ? col_exists($conn, 'workers', 'skill_category') : true;
+$hasRate   = function_exists('col_exists') ? col_exists($conn, 'workers', 'hourly_rate') : true;
+$hasBio    = function_exists('col_exists') ? col_exists($conn, 'workers', 'bio') : true;
+$hasStatus = function_exists('col_exists') ? col_exists($conn, 'workers', 'status') : true;
+
+// Handle POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $action = (string)($_POST['action'] ?? '');
+
+  if ($action === 'save') {
+    $full   = trim((string)($_POST['full_name'] ?? ''));
+    $phone  = trim((string)($_POST['phone'] ?? ''));
+    $skill  = trim((string)($_POST['skill_category'] ?? ''));
+    $rateIn = (string)($_POST['hourly_rate'] ?? '');
+    $bio    = trim((string)($_POST['bio'] ?? ''));
+    $status = trim((string)($_POST['status'] ?? 'active'));
+
+    if ($full === '') {
+      header('Location: ' . $baseUrl . '/admin/edit-worker.php?id=' . $worker_id . '&err=' . urlencode('Full name is required'));
+      exit;
     }
-    if ($ADDR_COL){ $sets[]="$ADDR_COL=?"; $types.='s'; $params[]=$addr; }
-    if ($HAS_BIO){ $sets[]='bio=?'; $types.='s'; $params[]=$bio; }
-    $sql="UPDATE workers SET ".implode(', ',$sets)." WHERE worker_id=?";
-    $types.='i'; $params[]=$worker_id;
 
-    try{
-      $q=$conn->prepare($sql); $q->bind_param($types,...$params); $q->execute(); $q->close();
-      redirect_to('/admin/manage-workers.php?msg=Worker%20updated');
-    }catch(Throwable $e){
-      redirect_to('/admin/edit-worker.php?id='.$worker_id.'&err='.urlencode($e->getMessage()));
+    if ($hasStatus && !in_array($status, ['active', 'inactive'], true)) {
+      $status = 'active';
     }
-  } elseif ($action==='reset_password'){
-    $new=$_POST['new_password']??'';
-    if (strlen($new)<6) redirect_to('/admin/edit-worker.php?id='.$worker_id.'&err=Password%20too%20short');
-    try{
-      $hash=password_hash($new,PASSWORD_DEFAULT);
-      $u=$conn->prepare("UPDATE workers SET password=? WHERE worker_id=?");
-      $u->bind_param('si',$hash,$worker_id); $u->execute(); $u->close();
-      redirect_to('/admin/manage-workers.php?msg=Password%20updated');
-    }catch(Throwable $e){
-      redirect_to('/admin/edit-worker.php?id='.$worker_id.'&err='.urlencode($e->getMessage()));
+
+    $sets  = ['full_name=?', 'phone=?'];
+    $types = 'ss';
+    $vals  = [$full, $phone];
+
+    if ($hasSkill) {
+      $sets[] = 'skill_category=?';
+      $types .= 's';
+      $vals[] = $skill;
     }
+
+    if ($hasRate) {
+      if ($rateIn === '') {
+        $sets[] = 'hourly_rate=NULL';
+      } else {
+        if (!is_numeric($rateIn) || (float)$rateIn < 0) {
+          header('Location: ' . $baseUrl . '/admin/edit-worker.php?id=' . $worker_id . '&err=' . urlencode('Invalid hourly rate'));
+          exit;
+        }
+        $sets[] = 'hourly_rate=?';
+        $types .= 'd';
+        $vals[] = (float)$rateIn;
+      }
+    }
+
+    if ($hasBio) {
+      $sets[] = 'bio=?';
+      $types .= 's';
+      $vals[] = $bio;
+    }
+
+    if ($hasStatus) {
+      $sets[] = 'status=?';
+      $types .= 's';
+      $vals[] = $status;
+    }
+
+    $sql = 'UPDATE workers SET ' . implode(', ', $sets) . ' WHERE worker_id=?';
+    $types .= 'i';
+    $vals[]  = $worker_id;
+
+    $st = $conn->prepare($sql);
+    if (!$st) {
+      header('Location: ' . $baseUrl . '/admin/edit-worker.php?id=' . $worker_id . '&err=' . urlencode('Prepare failed: ' . $conn->error));
+      exit;
+    }
+    $st->bind_param($types, ...$vals);
+    $st->execute();
+    $st->close();
+
+    header('Location: ' . $baseUrl . '/admin/manage-workers.php?msg=' . urlencode('Worker updated'));
+    exit;
+  }
+
+  if ($action === 'reset_password') {
+    $new = (string)($_POST['new_password'] ?? '');
+    if (strlen($new) < 6) {
+      header('Location: ' . $baseUrl . '/admin/edit-worker.php?id=' . $worker_id . '&err=' . urlencode('Password must be at least 6 characters'));
+      exit;
+    }
+
+    $hash = password_hash($new, PASSWORD_DEFAULT);
+    $st = $conn->prepare('UPDATE workers SET password=? WHERE worker_id=?');
+    if (!$st) {
+      header('Location: ' . $baseUrl . '/admin/edit-worker.php?id=' . $worker_id . '&err=' . urlencode('Prepare failed: ' . $conn->error));
+      exit;
+    }
+    $st->bind_param('si', $hash, $worker_id);
+    $st->execute();
+    $st->close();
+
+    header('Location: ' . $baseUrl . '/admin/manage-workers.php?msg=' . urlencode('Password updated'));
+    exit;
   }
 }
 
-// load worker
-$cols=['worker_id','full_name','email','phone']; if ($HAS_SKILL) $cols[]='skill_category'; if ($HAS_RATE) $cols[]='hourly_rate'; if ($ADDR_COL) $cols[]="$ADDR_COL AS address"; if ($HAS_BIO) $cols[]='bio';
-$sel=implode(', ',$cols);
-$st=$conn->prepare("SELECT $sel FROM workers WHERE worker_id=? LIMIT 1"); $st->bind_param('i',$worker_id);
-$st->execute(); $w=$st->get_result()->fetch_assoc(); $st->close();
-if(!$w) redirect_to('/admin/manage-workers.php?err=Worker%20not%20found');
+// Load worker
+$sel = ['worker_id', 'full_name', 'email', 'phone'];
+if ($hasSkill)  $sel[] = 'skill_category';
+if ($hasRate)   $sel[] = 'hourly_rate';
+if ($hasBio)    $sel[] = 'bio';
+if ($hasStatus) $sel[] = 'status';
+$selSql = implode(', ', $sel);
 
-$flash_err=$_GET['err']??null;
+$st = $conn->prepare("SELECT $selSql FROM workers WHERE worker_id=? LIMIT 1");
+if (!$st) { http_response_code(500); exit('Prepare failed: ' . h($conn->error)); }
+$st->bind_param('i', $worker_id);
+$st->execute();
+$w = $st->get_result()->fetch_assoc();
+$st->close();
+
+if (!$w) {
+  header('Location: ' . $baseUrl . '/admin/manage-workers.php?err=' . urlencode('Worker not found'));
+  exit;
+}
+
+$flash_err = $_GET['err'] ?? '';
 ?>
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><title>Admin — Edit Worker</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin • Edit Worker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-blue-50 min-h-screen">
-<?php require_once __DIR__ . '/../partials/navbar.php'; ?>
-<div class="max-w-3xl mx-auto px-4 py-8">
-  <h1 class="text-2xl font-bold mb-4">Edit Worker</h1>
-  <?php if($flash_err): ?><div class="mb-4 p-3 rounded bg-red-100 text-red-800"><?= htmlspecialchars($flash_err) ?></div><?php endif; ?>
+<body class="bg-gray-50 min-h-screen">
+  <?php include $root . '/partials/navbar.php'; ?>
 
-  <div class="bg-white rounded-2xl shadow p-6">
-    <form method="post" action="<?= url('/admin/edit-worker.php?id='.(int)$w['worker_id']) ?>" class="space-y-4">
-      <input type="hidden" name="action" value="save">
-      <div>
-        <label class="block text-sm font-medium">Full name</label>
-        <input name="full_name" value="<?= htmlspecialchars($w['full_name']) ?>" class="mt-1 w-full border rounded px-3 py-2" required>
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold">Edit Worker</h1>
+      <a class="px-4 py-2 rounded-lg border bg-white hover:bg-gray-50" href="<?= $baseUrl ?>/admin/manage-workers.php">Back</a>
+    </div>
+
+    <?php if ($flash_err !== ''): ?>
+      <div class="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+        <?= h($flash_err) ?>
       </div>
-      <div class="grid md:grid-cols-2 gap-4">
+    <?php endif; ?>
+
+    <div class="bg-white rounded-xl shadow p-6">
+      <form method="post" action="<?= $baseUrl ?>/admin/edit-worker.php?id=<?= (int)$w['worker_id'] ?>" class="space-y-4">
+        <input type="hidden" name="action" value="save">
+
         <div>
-          <label class="block text-sm font-medium">Email</label>
-          <input value="<?= htmlspecialchars($w['email']) ?>" class="mt-1 w-full border rounded px-3 py-2 bg-gray-100 text-gray-600" disabled>
+          <label class="block text-sm font-medium">Full name</label>
+          <input name="full_name" value="<?= h($w['full_name']) ?>" class="mt-1 w-full border rounded-lg px-3 py-2" required>
         </div>
-        <div>
-          <label class="block text-sm font-medium">Phone</label>
-          <input name="phone" value="<?= htmlspecialchars($w['phone'] ?? '') ?>" class="mt-1 w-full border rounded px-3 py-2">
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium">Email</label>
+            <input value="<?= h($w['email']) ?>" class="mt-1 w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-600" disabled>
+          </div>
+          <div>
+            <label class="block text-sm font-medium">Phone</label>
+            <input name="phone" value="<?= h($w['phone'] ?? '') ?>" class="mt-1 w-full border rounded-lg px-3 py-2">
+          </div>
         </div>
-      </div>
-      <?php if ($HAS_SKILL): ?>
-        <div>
-          <label class="block text-sm font-medium">Skill category</label>
-          <input name="skill_category" value="<?= htmlspecialchars($w['skill_category'] ?? '') ?>" class="mt-1 w-full border rounded px-3 py-2">
+
+        <?php if ($hasSkill): ?>
+          <div>
+            <label class="block text-sm font-medium">Skill category</label>
+            <input name="skill_category" value="<?= h($w['skill_category'] ?? '') ?>" class="mt-1 w-full border rounded-lg px-3 py-2">
+          </div>
+        <?php endif; ?>
+
+        <?php if ($hasRate): ?>
+          <div>
+            <label class="block text-sm font-medium">Hourly rate (USD)</label>
+            <input type="number" min="0" step="0.01" name="hourly_rate" value="<?= isset($w['hourly_rate']) ? h((string)$w['hourly_rate']) : '' ?>" class="mt-1 w-full border rounded-lg px-3 py-2">
+          </div>
+        <?php endif; ?>
+
+        <?php if ($hasStatus): ?>
+          <div>
+            <label class="block text-sm font-medium">Status</label>
+            <select name="status" class="mt-1 w-full border rounded-lg px-3 py-2">
+              <option value="active" <?= (($w['status'] ?? 'active') === 'active') ? 'selected' : '' ?>>Active</option>
+              <option value="inactive" <?= (($w['status'] ?? 'active') === 'inactive') ? 'selected' : '' ?>>Inactive</option>
+            </select>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($hasBio): ?>
+          <div>
+            <label class="block text-sm font-medium">Bio</label>
+            <textarea name="bio" rows="5" class="mt-1 w-full border rounded-lg px-3 py-2"><?= h($w['bio'] ?? '') ?></textarea>
+          </div>
+        <?php endif; ?>
+
+        <div class="flex gap-2">
+          <button class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">Save changes</button>
+          <a class="px-4 py-2 rounded-lg border bg-white hover:bg-gray-50" href="<?= $baseUrl ?>/admin/manage-workers.php">Cancel</a>
         </div>
-      <?php endif; ?>
-      <?php if ($HAS_RATE): ?>
-        <div>
-          <label class="block text-sm font-medium">Hourly rate (USD)</label>
-          <input type="number" min="0" step="0.01" name="hourly_rate"
-                 value="<?= isset($w['hourly_rate']) ? htmlspecialchars((string)$w['hourly_rate']) : '' ?>"
-                 class="mt-1 w-full border rounded px-3 py-2">
-        </div>
-      <?php endif; ?>
-      <?php if ($ADDR_COL): ?>
-        <div>
-          <label class="block text-sm font-medium">Address</label>
-          <input name="address" value="<?= htmlspecialchars($w['address'] ?? '') ?>" class="mt-1 w-full border rounded px-3 py-2">
-        </div>
-      <?php endif; ?>
-      <?php if ($HAS_BIO): ?>
-        <div>
-          <label class="block text-sm font-medium">Bio</label>
-          <textarea name="bio" rows="5" class="mt-1 w-full border rounded px-3 py-2"><?= htmlspecialchars($w['bio'] ?? '') ?></textarea>
-        </div>
-      <?php endif; ?>
-      <div class="flex gap-2">
-        <button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Save</button>
-        <a class="px-4 py-2 rounded bg-white border hover:bg-gray-50" href="<?= url('/admin/manage-workers.php') ?>">Cancel</a>
-      </div>
-    </form>
+      </form>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-6 mt-8">
+      <h2 class="text-lg font-semibold">Reset Password</h2>
+      <form method="post" action="<?= $baseUrl ?>/admin/edit-worker.php?id=<?= (int)$w['worker_id'] ?>" class="mt-3 flex flex-col md:flex-row gap-2">
+        <input type="hidden" name="action" value="reset_password">
+        <input type="password" name="new_password" minlength="6" placeholder="New password" class="flex-1 border rounded-lg px-3 py-2" required>
+        <button class="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black">Update</button>
+      </form>
+      <p class="mt-2 text-xs text-gray-500">Minimum 6 characters.</p>
+    </div>
   </div>
 
-  <div class="bg-white rounded-2xl shadow p-6 mt-8">
-    <h2 class="text-lg font-semibold">Reset Password</h2>
-    <form method="post" action="<?= url('/admin/edit-worker.php?id='.(int)$w['worker_id']) ?>" class="mt-3 flex gap-2">
-      <input type="hidden" name="action" value="reset_password">
-      <input type="password" name="new_password" minlength="6" placeholder="New password" class="flex-1 border rounded px-3 py-2" required>
-      <button class="px-4 py-2 rounded bg-gray-800 text-white hover:bg-gray-900">Update</button>
-    </form>
-  </div>
-</div>
-<?php require_once __DIR__ . '/../partials/footer.php'; ?>
+  <?php include $root . '/partials/footer.php'; ?>
 </body>
 </html>
