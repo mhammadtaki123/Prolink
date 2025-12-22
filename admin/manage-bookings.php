@@ -1,8 +1,4 @@
 <?php
-/**
- * ProLink – Admin: Manage Bookings (fixed: uses booking_date, safe datetime)
- * Path: /Prolink/admin/manage-bookings.php
- */
 
 session_start();
 
@@ -25,6 +21,27 @@ function format_when($dt) {
   return date('Y-m-d H:i', $ts);
 }
 
+
+function push_notification($conn, $role, $recipient_id, $title, $message) {
+  $st = $conn->prepare('
+    INSERT INTO notifications (recipient_role, recipient_id, title, message, is_read, created_at)
+    VALUES (?, ?, ?, ?, 0, NOW())
+  ');
+  if (!$st) {
+    throw new Exception('Prepare failed (notification): ' . $conn->error);
+  }
+
+  $st->bind_param('siss', $role, $recipient_id, $title, $message);
+
+  if (!$st->execute()) {
+    $e = $st->error;
+    $st->close();
+    throw new Exception('Notification insert failed: ' . $e);
+  }
+
+  $st->close();
+}
+
 // CSRF
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
@@ -40,7 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token']) && hash
 
   if ($bid <= 0) { $err = 'Invalid booking id.'; }
   else {
-    $st = $conn->prepare("SELECT booking_id, status FROM bookings WHERE booking_id = ? LIMIT 1");
+    $st = $conn->prepare("SELECT b.booking_id, b.status, b.user_id, b.worker_id, b.service_id, s.title AS service_title
+              FROM bookings b
+              LEFT JOIN services s ON s.service_id = b.service_id
+              WHERE b.booking_id = ? LIMIT 1");
     if (!$st) { $err = 'Prepare failed: ' . $conn->error; }
     else {
       $st->bind_param('i', $bid);
@@ -56,6 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token']) && hash
           $allowed = ['pending','accepted','completed','cancelled'];
           if (!in_array($to, $allowed, true)) { $err = 'Invalid status.'; }
           else {
+            // Transition rules (admin)
+            // NOTE: Admin is allowed to restore a cancelled booking back to "pending".
             $okTransitions = [
               'pending'  => ['accepted','cancelled'],
               'accepted' => ['completed','cancelled'],
@@ -65,15 +87,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token']) && hash
             if (!in_array($to, $okTransitions[$cur] ?? [], true)) {
               $err = 'Invalid transition from ' . $cur . ' to ' . $to . '.';
             } else {
-              $u = $conn->prepare("UPDATE bookings SET status = ? WHERE booking_id = ?");
-              if (!$u) { $err = 'Prepare failed: ' . $conn->error; }
-              else {
+              $conn->begin_transaction();
+              try {
+                $u = $conn->prepare("UPDATE bookings SET status = ? WHERE booking_id = ?");
+                if (!$u) { throw new Exception('Prepare failed: ' . $conn->error); }
+
                 $u->bind_param('si', $to, $bid);
-                if ($u->execute()) { $ok = "Booking #$bid updated to " . ucfirst($to) . '.'; }
-                else { $err = 'Update failed: ' . $u->error; }
+                if (!$u->execute()) { throw new Exception('Update failed: ' . $u->error); }
                 $u->close();
+
+                $service_title = !empty($bk['service_title']) ? $bk['service_title'] : 'service';
+                $t = 'Booking ' . ucfirst($to) . ' (by Admin)';
+                $m = 'Status update for "' . $service_title . '": ' . ucfirst($to) . '.';
+
+                push_notification($conn, 'user', (int)$bk['user_id'], $t, $m);
+                push_notification($conn, 'worker', (int)$bk['worker_id'], $t, $m);
+
+                $conn->commit();
+                $ok = "Booking #$bid updated to " . ucfirst($to) . '.';
+              } catch (Exception $e) {
+                $conn->rollback();
+                $err = $e->getMessage();
               }
-            }
+}
           }
         }
 
@@ -81,15 +117,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csrf_token']) && hash
           if (!in_array($cur, ['completed','cancelled'], true)) {
             $err = 'Only completed or cancelled bookings can be deleted.';
           } else {
-            $d = $conn->prepare("DELETE FROM bookings WHERE booking_id = ?");
-            if (!$d) { $err = 'Prepare failed: ' . $conn->error; }
-            else {
+            $conn->begin_transaction();
+            try {
+              $d = $conn->prepare("DELETE FROM bookings WHERE booking_id = ?");
+              if (!$d) { throw new Exception('Prepare failed: ' . $conn->error); }
+
               $d->bind_param('i', $bid);
-              if ($d->execute()) { $ok = "Booking #$bid deleted."; }
-              else { $err = 'Delete failed: ' . $d->error; }
+              if (!$d->execute()) { throw new Exception('Delete failed: ' . $d->error); }
               $d->close();
+
+              $service_title = !empty($bk['service_title']) ? $bk['service_title'] : 'service';
+              $t = 'Booking Deleted by Admin';
+              $m = 'Your booking for "' . $service_title . '" was deleted by admin.';
+
+              push_notification($conn, 'user', (int)$bk['user_id'], $t, $m);
+              push_notification($conn, 'worker', (int)$bk['worker_id'], $t, $m);
+
+              $conn->commit();
+              $ok = "Booking #$bid deleted.";
+            } catch (Exception $e) {
+              $conn->rollback();
+              $err = $e->getMessage();
             }
-          }
+}
         }
       }
     }
@@ -286,21 +336,17 @@ $totalPages = (int)ceil(max(1, $total) / $perPage);
                   <input type="hidden" name="booking_id" value="<?= (int)$b['booking_id'] ?>">
                   <button class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50" type="submit">Cancel</button>
                 </form>
-              <?php elseif ($b['status'] === 'cancelled'): ?>
-                <form method="post">
-                  <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
-                  <input type="hidden" name="action" value="update">
-                  <input type="hidden" name="to" value="pending">
-                  <input type="hidden" name="booking_id" value="<?= (int)$b['booking_id'] ?>">
-                  <button class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50" type="submit">Edit (Set to Pending)</button>
-                </form>
-                <form method="post" onsubmit="return confirm('Delete this booking?')">
-                  <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
-                  <input type="hidden" name="action" value="delete">
-                  <input type="hidden" name="booking_id" value="<?= (int)$b['booking_id'] ?>">
-                  <button class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50" type="submit">Delete</button>
-                </form>
-              <?php else: /* completed */ ?>
+              <?php else: /* completed or cancelled */ ?>
+                <?php if ($b['status'] === 'cancelled'): ?>
+                  <form method="post" onsubmit="return confirm('Change this booking from Cancelled back to Pending?')">
+                    <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="to" value="pending">
+                    <input type="hidden" name="booking_id" value="<?= (int)$b['booking_id'] ?>">
+                    <button class="px-3 py-2 rounded-lg border bg-white hover:bg-gray-50" type="submit">Edit</button>
+                  </form>
+                <?php endif; ?>
+
                 <form method="post" onsubmit="return confirm('Delete this booking?')">
                   <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
                   <input type="hidden" name="action" value="delete">
