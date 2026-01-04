@@ -94,8 +94,7 @@ $btnId  = 'plMenuBtn_' . substr(md5(__FILE__), 0, 8);
 <nav class="bg-white border-b">
   <div class="max-w-7xl mx-auto px-4 py-3">
     <div class="flex items-center justify-between gap-3">
-
-      <!-- Left: Brand + main links (desktop) -->
+      
       <div class="flex items-center gap-6 min-w-0">
         <a href="<?= $baseUrl ?>/" class="font-bold whitespace-nowrap">ProLink</a>
 
@@ -116,8 +115,7 @@ $btnId  = 'plMenuBtn_' . substr(md5(__FILE__), 0, 8);
           <?php endif; ?>
         </div>
       </div>
-
-      <!-- Right: role links (desktop) + profile badge for user/worker -->
+      
       <div class="hidden md:flex items-center gap-4 flex-wrap justify-end">
         <?php if (!empty($_SESSION['user_id'])): ?>
           <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/user/my-bookings.php">My bookings</a>
@@ -126,7 +124,7 @@ $btnId  = 'plMenuBtn_' . substr(md5(__FILE__), 0, 8);
           <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/user/wallet.php">Wallet</a>
           <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/user/my-reviews.php">My reviews</a>
 
-          <!-- Profile badge (clickable) -->
+          
           <?php if (!empty($badge['href'])): ?>
             <a href="<?= htmlspecialchars($badge['href']) ?>"
                class="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-gray-100 transition whitespace-nowrap">
@@ -151,6 +149,7 @@ $btnId  = 'plMenuBtn_' . substr(md5(__FILE__), 0, 8);
         <?php elseif (!empty($_SESSION['worker_id'])): ?>
           <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/worker/bookings.php">My bookings</a>
           <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/worker/reviews.php">My reviews</a>
+          <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/dashboard/worker-dashboard.php">My Dashboard</a>
           <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/worker/messages.php">Messages</a>
           <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/worker/notifications.php">Notifications</a>
           <a class="text-sm whitespace-nowrap" href="<?= $baseUrl ?>/worker/wallet.php">Wallet</a>
@@ -247,6 +246,7 @@ $btnId  = 'plMenuBtn_' . substr(md5(__FILE__), 0, 8);
         <div class="pt-2 border-t"></div>
         <a class="block text-sm" href="<?= $baseUrl ?>/worker/bookings.php">My bookings</a>
         <a class="block text-sm" href="<?= $baseUrl ?>/worker/reviews.php">My reviews</a>
+        <a class="block text-sm" href="<?= $baseUrl ?>/dashboard/worker-dashboard.php">My Dashboard</a>
         <a class="block text-sm" href="<?= $baseUrl ?>/worker/messages.php">Messages</a>
         <a class="block text-sm" href="<?= $baseUrl ?>/worker/notifications.php">Notifications</a>
         <a class="block text-sm" href="<?= $baseUrl ?>/worker/wallet.php">Wallet</a>
@@ -271,7 +271,6 @@ $btnId  = 'plMenuBtn_' . substr(md5(__FILE__), 0, 8);
     menu.classList.toggle('hidden');
   });
 
-  // Close after clicking a link (nice on mobile)
   menu.querySelectorAll('a').forEach(a => {
     a.addEventListener('click', () => menu.classList.add('hidden'));
   });
